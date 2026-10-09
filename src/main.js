@@ -1,7 +1,7 @@
 import {clamp,renderer,scene,camera,sky,sun,sunDir} from './core.js';
 import {LEN} from './track.js';
 import './scenery.js';
-import {riders,player,stepRider} from './bikes.js';
+import {riders,player,stepRider,interact} from './bikes.js';
 import {updateCamera,snapCamera} from './cameras.js';
 import {race,resetRace,stepRace} from './race.js';
 import {showResults,hideResults,updateResults} from './results.js';
@@ -19,7 +19,7 @@ window.addEventListener('keydown',e=>{
 });
 try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)setPaused(true);}catch(e){}
 race.onFinish=showResults;
-if(import.meta.env.DEV)window.__apex={race,riders,player,LEN};   // dev-only hook for poking the race from the console
+if(import.meta.env.DEV)window.__apex={race,riders,player,LEN,stepRider,interact,stepRace};   // dev-only hook for poking the race from the console
 
 resetRace();
 let last=performance.now();
@@ -28,7 +28,7 @@ function frame(now){
   const dt=clamp((now-last)/1000,0,0.05);last=now;
   const sdt=paused?0:dt;
   if(sdt>0){
-    if(race.state!=='countdown')riders.forEach(r=>stepRider(r,sdt));   // bikes sit on the grid until lights out
+    if(race.state!=='countdown'){riders.forEach(r=>stepRider(r,sdt));interact();}   // bikes sit on the grid until lights out
     stepRace(sdt);
   }
   updateCamera(dt);

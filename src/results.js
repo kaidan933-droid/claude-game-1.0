@@ -12,7 +12,7 @@ export function updateResults(){
   const order=standings(),win=order[0].finishTime;
   const rows=order.map((r,i)=>{
     const done=r.finishTime!==null,best=r.lapTimes.length?Math.min(...r.lapTimes):null;
-    return '<tr class="'+(r===player?'me':'')+'"><td>'+(i+1)+'</td><td><i style="background:'+hexStr(r.color)+'"></i>'+r.name+'</td>'+
+    return '<tr class="'+(r===player?'me':'')+'"><td>'+(i+1)+'</td><td><i style="background:'+hexStr(r.color)+'"></i>'+r.name+(r.level?' <small>'+r.level+'</small>':'')+'</td>'+
       '<td>'+(done?fmt(r.finishTime):'Lap '+Math.min(race.laps,r.lapCount+1)+' of '+race.laps)+'</td>'+
       '<td>'+(done?(i?'+'+(r.finishTime-win).toFixed(3):'Winner'):'')+'</td><td>'+(best===null?'':fmt(best))+'</td></tr>';
   }).join('');

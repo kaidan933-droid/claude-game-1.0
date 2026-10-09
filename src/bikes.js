@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import {clamp,lin,hexStr,scene,tex,std} from './core.js';
-import {curve,LEN,V,K,G,W,EDGE,lerpArr,barrierAt} from './track.js';
+import {clamp,sstep,lin,hexStr,scene,tex,std} from './core.js';
+import {curve,LEN,N,ds,mod,corners,V,K,G,W,EDGE,lerpArr,barrierAt} from './track.js';
 import {controls} from './controls.js';
 
 /* ---------------- motorcycles ---------------- */
@@ -219,16 +219,16 @@ function poseRider(R,a,inSide,lean){
 }
 
 const riders=[
-  {name:'You',     color:0xff8a1f,accent:0x1d1b22,suit:0x23202a,num:7, rim:'gold',            s:-42,lane:-2,   skill:1.012,human:true},
-  {name:'R. Ferro',color:0xd7263d,accent:0xf3efe7,suit:0xf1ece4,num:21,rimColor:0x16161a,     s:-6, lane:-2,   skill:0.998},
-  {name:'K. Osei', color:0x17a3a5,accent:0xffd23a,suit:0x1c2b33,num:44,rim:'gold',            s:-15,lane:2,    skill:0.995},
-  {name:'M. Lund', color:0x3157d6,accent:0xf3efe7,suit:0xf1ece4,num:9, rimColor:0x16161a,     s:-24,lane:-2,   skill:0.992},
-  {name:'T. Varga',color:0xc6e24a,accent:0x1d1b22,suit:0x1f2a14,num:63,rimColor:0x16161a,     s:-33,lane:2,    skill:0.989}
+  {name:'You',     color:0xff8a1f,accent:0x1d1b22,suit:0x23202a,num:7, rim:'gold',            s:-42,lane:-2,   skill:0.95,level:'You',aggr:0.5,react:12,err:0,lineQ:0.9,human:true},
+  {name:'R. Ferro',color:0xd7263d,accent:0xf3efe7,suit:0xf1ece4,num:21,rimColor:0x16161a,     s:-6, lane:-2,   skill:0.985,level:'Pro',aggr:0.9,react:16,err:0.03,lineQ:1.0},
+  {name:'K. Osei', color:0x17a3a5,accent:0xffd23a,suit:0x1c2b33,num:44,rim:'gold',            s:-15,lane:2,    skill:0.97, level:'Strong',aggr:0.7,react:14,err:0.08,lineQ:0.92},
+  {name:'M. Lund', color:0x3157d6,accent:0xf3efe7,suit:0xf1ece4,num:9, rimColor:0x16161a,     s:-24,lane:-2,   skill:0.95, level:'Club',aggr:0.5,react:12,err:0.15,lineQ:0.85},
+  {name:'T. Varga',color:0xc6e24a,accent:0x1d1b22,suit:0x1f2a14,num:63,rimColor:0x16161a,     s:-33,lane:2,    skill:0.925,level:'Rookie',aggr:0.3,react:9,err:0.25,lineQ:0.75}
 ];
 riders.forEach(r=>{Object.assign(r,makeBike(r));r.grid={s:r.s,lane:r.lane};r.pitch=0;});
 /* put a rider back on the grid, stopped, ready for a new race */
 function resetRider(r){
-  Object.assign(r,{s:r.grid.s,v:0,off:r.grid.lane,lean:0,psi:0,steer:0,thr:0,brk:0,sliding:false,crash:null,gripUse:0,
+  Object.assign(r,{mistake:null,cKey:'',pass:null,s:r.grid.s,v:0,off:r.grid.lane,lean:0,psi:0,steer:0,thr:0,brk:0,sliding:false,crash:null,gripUse:0,
     auto:false,lapCount:0,lapTimes:[],lapStart:0,finishTime:null});
   stepRider(r,0);
 }
@@ -279,7 +279,7 @@ function stepPlayer(r,dt){
   r.steer=ease(r.steer,steerIn,steerIn?6:10);
   const rough=Math.abs(r.off)>EDGE;                // past the curb: gravel and turf
   const aThr=ACCEL*r.thr*Math.max(0,1-r.v/VTOP),aBrk=BRAKE_DEC*r.brk;
-  let a=aThr-aBrk-(0.6+0.00035*r.v*r.v);
+  let a=aThr-aBrk-(0.6+0.00035*r.v*r.v)*(1-0.6*draftOf(r));
   if(rough)a-=12;
   /* tyre grip: what the steering asks for against what is left after braking or accelerating */
   const frac=Math.min(1,Math.max(aThr,aBrk)/BRAKE_DEC)*0.8;
@@ -313,17 +313,68 @@ function stepPlayer(r,dt){
 }
 
 const AI_ACC=10;                                    // standing-start acceleration limit (m/s2)
+const wrapD=d=>((d+LEN/2)%LEN+LEN)%LEN-LEN/2;        // signed distance along the track, shortest way round
+/* slipstream: 0..1 when tucked in close behind another bike */
+function draftOf(r){
+  let best=0;
+  for(const o of riders){if(o===r)continue;
+    const d=wrapD(o.s-r.s),dl=Math.abs(o.off-r.off);
+    if(d>1&&d<18&&dl<1.3)best=Math.max(best,(1-d/18)*(1-dl/1.3));}
+  return best;
+}
+/* nearest bike ahead that is in our way */
+function aheadOf(r,range){
+  let best=null;
+  for(const o of riders){if(o===r)continue;
+    const d=wrapD(o.s-r.s);
+    if(d>0.5&&d<range&&Math.abs(o.off-r.off)<2.2&&(!best||d<best.d))best={o,d};}
+  return best;
+}
+const dApexOf=(i,c)=>((i-c.ip+N/2)%N+N)%N-N/2;
 function stepRider(r,dt){
   if(r.human&&!r.auto)return stepPlayer(r,dt);
-  const target=lerpArr(V,r.s)*r.skill;
+  const i=mod(Math.floor(((r.s%LEN)+LEN)%LEN/ds));
+  const k=lerpArr(K,r.s),kA=lerpArr(K,r.s+16);
+  /* corner in view: roll for a mistake once per corner (weaker riders carry too much speed and run wide) */
+  let cur=null;
+  for(const c of corners)if(mod(i-(c.i0-14))<=c.i1-c.i0+24){cur=c;break;}
+  if(cur){
+    const key=cur.num+':'+Math.floor(r.s/LEN);
+    if(r.cKey!==key){r.cKey=key;
+      r.mistake=r.err>0&&r.s>0&&Math.random()<r.err*(cur.r<70?1.5:0.7)?{c:cur,sev:0.5+Math.random()*0.8}:null;}
+  }else r.mistake=null;
+  let sf=1,wide=0;
+  if(r.mistake&&r.mistake.c===cur){
+    const m=r.mistake,da=dApexOf(i,cur);
+    sf=da<0?1+0.05*m.sev:0.88;
+    wide=-cur.sg*m.sev*6*(da<0?clamp(1+da/14,0,1):1-clamp((da-8)/22,0,1));
+  }
+  /* traffic: slipstream, pass or hold station */
+  const ahead=aheadOf(r,r.react+14);
+  const draft=draftOf(r);
+  let target=lerpArr(V,r.s)*r.skill*sf*(1+0.03*draft);
+  let offLine=Math.sign(kA)*Math.min(1,Math.abs(kA)*36)*(W-1.6)*r.lineQ;
+  let offT=r.lane*0.55+offLine,rate=1.6;
+  if(ahead){
+    const {o,d}=ahead;
+    if(d<r.react*(0.6+0.4*r.aggr)){
+      if(!r.pass||r.pass.o!==o){
+        const roomL=(W-1.1)-o.off,roomR=o.off+(W-1.1);
+        const bias=Math.sign(kA)*r.aggr*0.8*(Math.abs(kA)>0.002?1:0);
+        r.pass={o,side:(roomL-roomR)*0.2+bias>=0?1:-1};
+      }
+      const want=clamp(o.off+r.pass.side*1.9,-W+1.1,W-1.1);
+      if(Math.abs(want-o.off)>=1.5){offT=want;rate=2.6;}
+    }
+    if(Math.abs(o.off-r.off)<1.5&&d<12)target=Math.min(target,Math.max(0,o.v+(d-3.5)*0.8));  // don't ride up the back
+  }else r.pass=null;
+  if(r.pass&&wrapD(r.pass.o.s-r.s)<-4)r.pass=null;
+  offT=clamp(offT+wide,-W-(wide?3:-1.1),W+(wide?3:-1.1));
   const braking=target<r.v-0.6;
   r.v+=Math.min((target-r.v)*(1-Math.exp(-dt*(braking?3.2:2.2))),AI_ACC*dt);
   r.s+=r.v*dt;
   const u=((r.s%LEN)+LEN)%LEN/LEN,p=curve.getPointAt(u),t=curve.getTangentAt(u),l=Math.hypot(t.x,t.z);
-  const k=lerpArr(K,r.s),kA=lerpArr(K,r.s+16);
-  const line=Math.sign(kA)*Math.min(1,Math.abs(kA)*36)*(W-1.6);
-  const offT=clamp(r.lane*0.55+line,-W+1.1,W-1.1);
-  r.off+=(offT-r.off)*(1-Math.exp(-dt*1.6));
+  r.off+=(offT-r.off)*(1-Math.exp(-dt*rate));
   r.g.position.set(p.x+(t.z/l)*r.off,p.y+0.05,p.z-(t.x/l)*r.off);
   r.psi*=Math.exp(-dt*3);                           // heading left over when the autopilot takes over
   r.g.rotation.y=Math.atan2(t.x,t.z)+r.psi;
@@ -337,4 +388,19 @@ function stepRider(r,dt){
   r.wheels[0].rotation.x+=r.v*dt/0.305;r.wheels[1].rotation.x+=r.v*dt/0.312;
   r.tailLight.emissiveIntensity=braking?5:0.6;
 }
-export {riders,player,stepRider,resetRider};
+/* bike-to-bike contact: push apart, the rider behind loses speed, a hard rear-end shunt crashes the player */
+function interact(){
+  for(let a=0;a<riders.length;a++)for(let b=a+1;b<riders.length;b++){
+    const x=riders[a],y=riders[b],d=wrapD(y.s-x.s),dl=y.off-x.off;
+    if(Math.abs(d)>1.8||Math.abs(dl)>0.75)continue;
+    const push=(0.75-Math.abs(dl))/2,sg=dl>=0?(dl===0&&b%2?-1:1):-1;
+    y.off+=sg*push;x.off-=sg*push;
+    const rear=d>0?x:y,front=d>0?y:x,rel=rear.v-front.v;
+    if(rel>0.5){rear.v=front.v+rel*0.3;front.v+=rel*0.1;}
+    if(rel>12){
+      if(rear.human&&!rear.auto&&!rear.crash)rear.crash={t:0,dir:sg*(rear===x?-1:1)||1};
+      else if(!rear.human)rear.v*=0.5;
+    }
+  }
+}
+export {riders,player,stepRider,resetRider,interact};
