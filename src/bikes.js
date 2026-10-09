@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {clamp,lin,hexStr,scene,tex,std} from './core.js';
-import {curve,LEN,V,K,G,W,lerpArr} from './track.js';
+import {curve,LEN,V,K,G,W,EDGE,lerpArr} from './track.js';
+import {controls} from './controls.js';
 
 /* ---------------- motorcycles ---------------- */
 const UP=new THREE.Vector3(0,1,0);
@@ -218,16 +219,52 @@ function poseRider(R,a,inSide,lean){
 }
 
 const riders=[
-  {name:'You',     color:0xff8a1f,accent:0x1d1b22,suit:0x23202a,num:7, rim:'gold',            s:0,  lane:0,    skill:1.012},
+  {name:'You',     color:0xff8a1f,accent:0x1d1b22,suit:0x23202a,num:7, rim:'gold',            s:0,  lane:0,    skill:1.012,human:true},
   {name:'R. Ferro',color:0xd7263d,accent:0xf3efe7,suit:0xf1ece4,num:21,rimColor:0x16161a,     s:18, lane:-2.2, skill:0.998},
   {name:'K. Osei', color:0x17a3a5,accent:0xffd23a,suit:0x1c2b33,num:44,rim:'gold',            s:34, lane:2.2,  skill:0.995},
   {name:'M. Lund', color:0x3157d6,accent:0xf3efe7,suit:0xf1ece4,num:9, rimColor:0x16161a,     s:51, lane:-3.6, skill:0.992},
   {name:'T. Varga',color:0xc6e24a,accent:0x1d1b22,suit:0x1f2a14,num:63,rimColor:0x16161a,     s:67, lane:3.6,  skill:0.989}
 ];
-riders.forEach(r=>{Object.assign(r,makeBike(r));r.v=lerpArr(V,r.s)*0.9;r.off=r.lane;r.lean=0;r.pitch=0;});
+riders.forEach(r=>{Object.assign(r,makeBike(r));r.v=r.human?0:lerpArr(V,r.s)*0.9;r.off=r.lane;r.lean=0;r.pitch=0;r.psi=0;r.steer=0;r.thr=0;r.brk=0;});
 const player=riders[0];
 
+/* player bike: speed, lean and line come from the rider's inputs */
+const VTOP=88,ACCEL=13,BRAKE_DEC=24,WB_MAX=1.25,A_LAT=15,WALL=EDGE+14.6;
+function stepPlayer(r,dt){
+  const c=controls;
+  if(c.takeReset()){r.off=0;r.psi=0;r.v=0;r.steer=0;}
+  const ease=(a,b,k)=>a+(b-a)*(1-Math.exp(-dt*k));
+  r.thr=ease(r.thr,c.throttle,9);r.brk=ease(r.brk,c.brake,14);
+  const steerIn=c.left-c.right;                    // +1 = left
+  r.steer=ease(r.steer,steerIn,steerIn?6:10);
+  const rough=Math.abs(r.off)>EDGE;                // past the curb: gravel and turf
+  let a=ACCEL*r.thr*Math.max(0,1-r.v/VTOP)-BRAKE_DEC*r.brk-(0.6+0.00035*r.v*r.v);
+  if(rough)a-=12;
+  r.v=Math.max(0,r.v+a*dt);
+  const wb=r.steer*Math.min(WB_MAX,A_LAT/Math.max(r.v,1))*clamp(r.v/3,0,1);   // yaw rate, left positive
+  const kap=lerpArr(K,r.s);
+  const sdot=r.v*Math.cos(r.psi)/Math.max(0.3,1-kap*r.off);
+  r.psi+=(wb-kap*sdot)*dt;
+  if(r.psi>Math.PI)r.psi-=2*Math.PI;else if(r.psi<-Math.PI)r.psi+=2*Math.PI;
+  r.off+=r.v*Math.sin(r.psi)*dt;
+  r.s+=sdot*dt;
+  if(Math.abs(r.off)>WALL){r.off=Math.sign(r.off)*WALL;r.v*=Math.exp(-dt*4);r.psi*=Math.exp(-dt*6);}
+  const u=((r.s%LEN)+LEN)%LEN/LEN,p=curve.getPointAt(u),t=curve.getTangentAt(u),l=Math.hypot(t.x,t.z);
+  r.g.position.set(p.x+(t.z/l)*r.off,p.y+0.05,p.z-(t.x/l)*r.off);
+  r.g.rotation.y=Math.atan2(t.x,t.z)+r.psi;
+  r.pitch+=(-Math.asin(clamp(t.y,-1,1))-r.pitch)*(1-Math.exp(-dt*8));
+  r.g.rotation.x=r.pitch+0.015*r.brk-0.005*r.thr;
+  const leanT=clamp(-Math.atan(r.v*wb/G),-0.97,0.97);
+  r.lean=ease(r.lean,leanT,7);
+  r.g.rotation.z=r.lean;
+  const amt=clamp((Math.abs(r.lean)-0.2)/0.5,0,1),inSide=r.lean>0?-1:1;
+  poseRider(r.rig,amt,inSide,r.lean);
+  r.wheels[0].rotation.x+=r.v*dt/0.305;r.wheels[1].rotation.x+=r.v*dt/0.312;
+  r.tailLight.emissiveIntensity=r.brk>0.3?5:0.6;
+}
+
 function stepRider(r,dt){
+  if(r.human)return stepPlayer(r,dt);
   const target=lerpArr(V,r.s)*r.skill;
   const braking=target<r.v-0.6;
   r.v+=(target-r.v)*(1-Math.exp(-dt*(braking?3.2:2.2)));

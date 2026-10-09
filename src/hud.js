@@ -44,7 +44,7 @@ function updateHud(simTime){
   segs.forEach((s,i)=>s.classList.toggle('on',i<lit));
   const lap=Math.floor(player.s/LEN);
   if(lap>lastLap){const lt=simTime-lapStart;best=best===null?lt:Math.min(best,lt);lapStart=simTime;lastLap=lap;$('best').textContent=fmt(best);}
-  $('lap').textContent=(lap%5+1)+' of 5';$('time').textContent=fmt(simTime-lapStart);
+  $('lap').textContent=(((lap%5)+5)%5+1)+' of 5';$('time').textContent=fmt(simTime-lapStart);
   const order=[...riders].sort((a,b)=>b.s-a.s),pos=order.indexOf(player)+1;
   $('pos').textContent=pos;$('sfx').textContent=sfx(pos);
   const key=order.map(r=>r.num).join(',');

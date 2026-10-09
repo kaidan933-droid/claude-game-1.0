@@ -6,7 +6,7 @@ Motorcycle race concept in three.js (r128) built with Vite.
     npm run dev      # http://localhost:5173
     npm run build    # bundle in dist/, serve with `npm run preview`
 
-Controls: `C` cycles cameras, `Space` pauses.
+Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, `R` reset to track, `C` cycles cameras, `Space` pauses.
 
     src/main.js      game loop, pause
     src/core.js      renderer, scene, sky, lights, shared helpers
