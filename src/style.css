@@ -56,6 +56,12 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--
 .rev span.on{background:var(--cool)}
 .rev span.on.mid{background:var(--amber)}
 .rev span.on.red{background:var(--hot)}
+.grip{height:5px;margin:0 0 8px 6px;background:rgba(255,244,230,.12);transform:skewX(-22deg);overflow:hidden}
+.grip i{display:block;height:100%;width:0;background:var(--cool)}
+.grip.slip i{background:var(--hot)}
+.crash{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-size:64px;font-weight:700;font-style:italic;letter-spacing:.04em;
+  color:var(--hot);text-shadow:0 2px 18px rgba(0,0,0,.6);opacity:0;transition:opacity .15s}
+.crash.on{opacity:1}
 .spd{display:grid;grid-template-columns:auto 1fr;align-items:end;gap:14px}
 .gear{display:flex;flex-direction:column;align-items:center;justify-content:center;width:54px;height:62px;border:2px solid var(--amber);transform:skewX(-10deg)}
 .gear small{font-size:11px;color:var(--muted);line-height:1}

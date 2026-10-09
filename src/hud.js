@@ -37,6 +37,10 @@ const sfx=n=>['th','st','nd','rd'][n]||'th';
 const ARROWS={fast:'M20 44 C20 30 24 20 36 12',medium:'M18 44 L18 30 C18 20 24 15 36 15',tight:'M16 44 L16 24 C16 14 24 12 36 18',hairpin:'M13 44 L13 18 C13 3 35 3 35 18 L35 28'};
 let lapStart=0,best=null,lastLap=0,boardKey='',noteKey='';
 function updateHud(simTime){
+  const gu=player.gripUse||0;
+  $('gripBar').style.width=Math.min(100,gu*80)+'%';
+  $('gripBar').parentElement.classList.toggle('slip',player.sliding);
+  $('crash').classList.toggle('on',!!player.crash);
   const kmh=player.v*3.6;$('spd').textContent=Math.round(kmh);
   const gi=gearFor(kmh);$('gear').textContent=gi;
   const lo=GEARS[gi-1],hi=GEARS[gi]===999?300:GEARS[gi];

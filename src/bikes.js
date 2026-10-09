@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {clamp,lin,hexStr,scene,tex,std} from './core.js';
-import {curve,LEN,V,K,G,W,EDGE,lerpArr} from './track.js';
+import {curve,LEN,V,K,G,W,EDGE,lerpArr,barrierAt} from './track.js';
 import {controls} from './controls.js';
 
 /* ---------------- motorcycles ---------------- */
@@ -225,42 +225,85 @@ const riders=[
   {name:'M. Lund', color:0x3157d6,accent:0xf3efe7,suit:0xf1ece4,num:9, rimColor:0x16161a,     s:51, lane:-3.6, skill:0.992},
   {name:'T. Varga',color:0xc6e24a,accent:0x1d1b22,suit:0x1f2a14,num:63,rimColor:0x16161a,     s:67, lane:3.6,  skill:0.989}
 ];
-riders.forEach(r=>{Object.assign(r,makeBike(r));r.v=r.human?0:lerpArr(V,r.s)*0.9;r.off=r.lane;r.lean=0;r.pitch=0;r.psi=0;r.steer=0;r.thr=0;r.brk=0;});
+riders.forEach(r=>{Object.assign(r,makeBike(r));r.v=r.human?0:lerpArr(V,r.s)*0.9;r.off=r.lane;r.lean=0;r.pitch=0;r.psi=0;r.steer=0;r.thr=0;r.brk=0;r.sliding=false;r.crash=null;r.gripUse=0;});
 const player=riders[0];
 
 /* player bike: speed, lean and line come from the rider's inputs */
-const VTOP=88,ACCEL=13,BRAKE_DEC=24,WB_MAX=1.25,A_LAT=15,WALL=EDGE+14.6;
-function stepPlayer(r,dt){
-  const c=controls;
-  if(c.takeReset()){r.off=0;r.psi=0;r.v=0;r.steer=0;}
-  const ease=(a,b,k)=>a+(b-a)*(1-Math.exp(-dt*k));
-  r.thr=ease(r.thr,c.throttle,9);r.brk=ease(r.brk,c.brake,14);
-  const steerIn=c.left-c.right;                    // +1 = left
-  r.steer=ease(r.steer,steerIn,steerIn?6:10);
-  const rough=Math.abs(r.off)>EDGE;                // past the curb: gravel and turf
-  let a=ACCEL*r.thr*Math.max(0,1-r.v/VTOP)-BRAKE_DEC*r.brk-(0.6+0.00035*r.v*r.v);
-  if(rough)a-=12;
-  r.v=Math.max(0,r.v+a*dt);
-  const wb=r.steer*Math.min(WB_MAX,A_LAT/Math.max(r.v,1))*clamp(r.v/3,0,1);   // yaw rate, left positive
-  const kap=lerpArr(K,r.s);
-  const sdot=r.v*Math.cos(r.psi)/Math.max(0.3,1-kap*r.off);
-  r.psi+=(wb-kap*sdot)*dt;
-  if(r.psi>Math.PI)r.psi-=2*Math.PI;else if(r.psi<-Math.PI)r.psi+=2*Math.PI;
+const VTOP=88,ACCEL=13,BRAKE_DEC=24,WB_MAX=1.25;
+const A_CMD=13.5,A_LAT=15;                 // lateral accel a full steer asks for / the tyres can give (m/s2)
+const MU_ROUGH=0.45,SLIDE_MU=0.8;          // gravel and turf grip, grip left once sliding
+const CRASH_TIME=2.2,CRASH_SPEED=4;
+function integrate(r,dt,sdot){
   r.off+=r.v*Math.sin(r.psi)*dt;
   r.s+=sdot*dt;
-  if(Math.abs(r.off)>WALL){r.off=Math.sign(r.off)*WALL;r.v*=Math.exp(-dt*4);r.psi*=Math.exp(-dt*6);}
+}
+function placePlayer(r,dt,leanT,leanK,amtLean){
   const u=((r.s%LEN)+LEN)%LEN/LEN,p=curve.getPointAt(u),t=curve.getTangentAt(u),l=Math.hypot(t.x,t.z);
   r.g.position.set(p.x+(t.z/l)*r.off,p.y+0.05,p.z-(t.x/l)*r.off);
   r.g.rotation.y=Math.atan2(t.x,t.z)+r.psi;
   r.pitch+=(-Math.asin(clamp(t.y,-1,1))-r.pitch)*(1-Math.exp(-dt*8));
   r.g.rotation.x=r.pitch+0.015*r.brk-0.005*r.thr;
-  const leanT=clamp(-Math.atan(r.v*wb/G),-0.97,0.97);
-  r.lean=ease(r.lean,leanT,7);
+  r.lean+=(leanT-r.lean)*(1-Math.exp(-dt*leanK));
   r.g.rotation.z=r.lean;
   const amt=clamp((Math.abs(r.lean)-0.2)/0.5,0,1),inSide=r.lean>0?-1:1;
-  poseRider(r.rig,amt,inSide,r.lean);
+  poseRider(r.rig,amt,inSide,Math.max(-1,Math.min(1,r.lean)));
   r.wheels[0].rotation.x+=r.v*dt/0.305;r.wheels[1].rotation.x+=r.v*dt/0.312;
+}
+function stepCrash(r,dt){
+  const k=r.crash;k.t+=dt;
+  r.thr=r.brk=r.steer=0;r.gripUse=0;
+  r.v*=Math.exp(-dt*2.2);
+  const kap=lerpArr(K,r.s);
+  integrate(r,dt,r.v*Math.cos(r.psi)/Math.max(0.3,1-kap*r.off));
+  const bd=barrierAt(r.s,Math.sign(r.off)||1);
+  if(Math.abs(r.off)>bd){r.off=Math.sign(r.off)*bd;r.v*=Math.exp(-dt*8);}
+  r.tailLight.emissiveIntensity=0.6;
+  placePlayer(r,dt,k.dir*1.45,9);
+  if(k.t>=CRASH_TIME){                       // respawn on the racing line, stopped
+    r.crash=null;r.off=0;r.psi=0;r.v=0;r.steer=0;r.lean=0;r.sliding=false;
+  }
+}
+function stepPlayer(r,dt){
+  if(r.crash)return stepCrash(r,dt);
+  const c=controls;
+  if(c.takeReset()){r.off=0;r.psi=0;r.v=0;r.steer=0;r.sliding=false;}
+  const ease=(a,b,k)=>a+(b-a)*(1-Math.exp(-dt*k));
+  r.thr=ease(r.thr,c.throttle,9);r.brk=ease(r.brk,c.brake,14);
+  const steerIn=c.left-c.right;                    // +1 = left
+  r.steer=ease(r.steer,steerIn,steerIn?6:10);
+  const rough=Math.abs(r.off)>EDGE;                // past the curb: gravel and turf
+  const aThr=ACCEL*r.thr*Math.max(0,1-r.v/VTOP),aBrk=BRAKE_DEC*r.brk;
+  let a=aThr-aBrk-(0.6+0.00035*r.v*r.v);
+  if(rough)a-=12;
+  /* tyre grip: what the steering asks for against what is left after braking or accelerating */
+  const frac=Math.min(1,Math.max(aThr,aBrk)/BRAKE_DEC)*0.8;
+  const gripBase=A_LAT*(rough?MU_ROUGH:1)*Math.sqrt(1-frac*frac);
+  const wbCmd=r.steer*Math.min(WB_MAX,A_CMD/Math.max(r.v,1))*clamp(r.v/3,0,1);   // wanted yaw rate, left positive
+  const aReq=Math.abs(r.v*wbCmd);
+  if(!r.sliding&&aReq>gripBase)r.sliding=true;
+  else if(r.sliding&&aReq<gripBase*0.7)r.sliding=false;
+  const grip=r.sliding?gripBase*SLIDE_MU:gripBase;
+  r.gripUse=grip>0.01?aReq/grip:(aReq>0.01?2:0);
+  let wb=wbCmd;
+  if(aReq>grip){                                    // front tyre pushes: turns less than asked, scrubs speed
+    wb=Math.sign(wbCmd)*grip/Math.max(r.v,1);
+    a-=3+6*Math.min(1,(aReq-grip)/A_LAT);
+  }else if(r.sliding)a-=3;
+  r.v=Math.max(0,r.v+a*dt);
+  const kap=lerpArr(K,r.s);
+  const sdot=r.v*Math.cos(r.psi)/Math.max(0.3,1-kap*r.off);
+  r.psi+=(wb-kap*sdot)*dt;
+  if(r.psi>Math.PI)r.psi-=2*Math.PI;else if(r.psi<-Math.PI)r.psi+=2*Math.PI;
+  integrate(r,dt,sdot);
+  /* solid barriers: wall or tyre stack */
+  const bd=barrierAt(r.s,Math.sign(r.off)||1);
+  if(Math.abs(r.off)>=bd){
+    r.off=Math.sign(r.off)*bd;
+    if(r.v>=CRASH_SPEED){r.crash={t:0,dir:Math.sign(r.lean)||(r.off>0?-1:1)};r.sliding=false;}
+    else{r.v*=Math.exp(-dt*6);r.psi*=Math.exp(-dt*6);}
+  }
   r.tailLight.emissiveIntensity=r.brk>0.3?5:0.6;
+  placePlayer(r,dt,clamp(-Math.atan(r.v*wb/G),-0.97,0.97),7);
 }
 
 function stepRider(r,dt){

@@ -130,12 +130,13 @@ const PIT0=-Math.round(36/ds),PIT1=Math.round(210/ds);
 const BAR=EDGE+16.3;
 const gravelMat=new THREE.MeshStandardMaterial({map:gravelTex,roughness:1});
 const rubberMat=new THREE.MeshStandardMaterial({map:rubberTex,transparent:true,depthWrite:false,roughness:0.7});
-const tirePos=[];
+const tirePos=[],tireZones=[];
 corners.forEach(c=>{
   const out=-c.sg;
   if(c.r<140){const a=EDGE+2.5,b=EDGE+15.5;strip(out>0?a:-b,out>0?b:-a,0.02,gravelMat,6,c.i0-12,c.i1+26);
     wall(out*b,-0.6,0.02,gravelMat,6,0.15,c.i0-12,c.i1+26,false);}
   if(c.r<70){
+    tireZones.push({side:out,i0:c.i0-6,len:c.i1+18-(c.i0-6)});
     for(let i=c.i0-6;i<=c.i1+18;i++){const ii=mod(i),p=S[ii],sd=SIDE[ii];
       for(let k=0;k<Math.max(1,Math.round(ds/0.68));k++){const f=k*0.68/ds;const jj=mod(i+1),q=S[jj];
         const x=p.x+(q.x-p.x)*f,z=p.z+(q.z-p.z)*f,y=p.y+(q.y-p.y)*f;
@@ -233,4 +234,10 @@ corners.filter(c=>c.kind==='hairpin').slice(0,2).forEach(c=>grandstand(mod(c.ip)
   const glass=new THREE.Mesh(new THREE.BoxGeometry(150,2.4,0.2),new THREE.MeshStandardMaterial({color:lin(0x334455),roughness:0.08,metalness:0.9}));glass.position.set(0,8.9,-2);g.add(glass);
   const top=new THREE.Mesh(new THREE.BoxGeometry(150,3,10),std(0xd2ccc4,0.85));top.position.set(0,9,-7.2);top.castShadow=true;g.add(top);
 })();
-export {grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};
+/* distance from the centre line to the first solid barrier on one side (+1 left, -1 right) */
+function barrierAt(s,side){
+  const i=mod(Math.floor(s/ds));
+  for(const z of tireZones)if(z.side===side&&mod(i-z.i0)<=z.len)return EDGE+14.6;
+  return BAR-0.3;
+}
+export {barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};

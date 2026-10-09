@@ -37,12 +37,15 @@
   <div class="tr panel"><canvas id="map" width="320" height="320" aria-label="Track map"></canvas></div>
 
   <section class="br panel" aria-label="Speed">
+    <div class="grip" aria-label="Tyre grip"><i id="gripBar"></i></div>
     <div class="rev" id="rev"></div>
     <div class="spd">
       <div class="gear"><small>Gear</small><b id="gear">1</b></div>
       <div class="kmh"><b id="spd">0</b><small>km/h</small></div>
     </div>
   </section>
+
+  <div class="crash" id="crash" role="status">Crash</div>
 
   <div class="bl">
     <div class="cams" role="group" aria-label="Camera">
