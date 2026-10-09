@@ -219,13 +219,19 @@ function poseRider(R,a,inSide,lean){
 }
 
 const riders=[
-  {name:'You',     color:0xff8a1f,accent:0x1d1b22,suit:0x23202a,num:7, rim:'gold',            s:0,  lane:0,    skill:1.012,human:true},
-  {name:'R. Ferro',color:0xd7263d,accent:0xf3efe7,suit:0xf1ece4,num:21,rimColor:0x16161a,     s:18, lane:-2.2, skill:0.998},
-  {name:'K. Osei', color:0x17a3a5,accent:0xffd23a,suit:0x1c2b33,num:44,rim:'gold',            s:34, lane:2.2,  skill:0.995},
-  {name:'M. Lund', color:0x3157d6,accent:0xf3efe7,suit:0xf1ece4,num:9, rimColor:0x16161a,     s:51, lane:-3.6, skill:0.992},
-  {name:'T. Varga',color:0xc6e24a,accent:0x1d1b22,suit:0x1f2a14,num:63,rimColor:0x16161a,     s:67, lane:3.6,  skill:0.989}
+  {name:'You',     color:0xff8a1f,accent:0x1d1b22,suit:0x23202a,num:7, rim:'gold',            s:-42,lane:-2,   skill:1.012,human:true},
+  {name:'R. Ferro',color:0xd7263d,accent:0xf3efe7,suit:0xf1ece4,num:21,rimColor:0x16161a,     s:-6, lane:-2,   skill:0.998},
+  {name:'K. Osei', color:0x17a3a5,accent:0xffd23a,suit:0x1c2b33,num:44,rim:'gold',            s:-15,lane:2,    skill:0.995},
+  {name:'M. Lund', color:0x3157d6,accent:0xf3efe7,suit:0xf1ece4,num:9, rimColor:0x16161a,     s:-24,lane:-2,   skill:0.992},
+  {name:'T. Varga',color:0xc6e24a,accent:0x1d1b22,suit:0x1f2a14,num:63,rimColor:0x16161a,     s:-33,lane:2,    skill:0.989}
 ];
-riders.forEach(r=>{Object.assign(r,makeBike(r));r.v=r.human?0:lerpArr(V,r.s)*0.9;r.off=r.lane;r.lean=0;r.pitch=0;r.psi=0;r.steer=0;r.thr=0;r.brk=0;r.sliding=false;r.crash=null;r.gripUse=0;});
+riders.forEach(r=>{Object.assign(r,makeBike(r));r.grid={s:r.s,lane:r.lane};r.pitch=0;});
+/* put a rider back on the grid, stopped, ready for a new race */
+function resetRider(r){
+  Object.assign(r,{s:r.grid.s,v:0,off:r.grid.lane,lean:0,psi:0,steer:0,thr:0,brk:0,sliding:false,crash:null,gripUse:0,
+    auto:false,lapCount:0,lapTimes:[],lapStart:0,finishTime:null});
+  stepRider(r,0);
+}
 const player=riders[0];
 
 /* player bike: speed, lean and line come from the rider's inputs */
@@ -306,11 +312,12 @@ function stepPlayer(r,dt){
   placePlayer(r,dt,clamp(-Math.atan(r.v*wb/G),-0.97,0.97),7);
 }
 
+const AI_ACC=10;                                    // standing-start acceleration limit (m/s2)
 function stepRider(r,dt){
-  if(r.human)return stepPlayer(r,dt);
+  if(r.human&&!r.auto)return stepPlayer(r,dt);
   const target=lerpArr(V,r.s)*r.skill;
   const braking=target<r.v-0.6;
-  r.v+=(target-r.v)*(1-Math.exp(-dt*(braking?3.2:2.2)));
+  r.v+=Math.min((target-r.v)*(1-Math.exp(-dt*(braking?3.2:2.2))),AI_ACC*dt);
   r.s+=r.v*dt;
   const u=((r.s%LEN)+LEN)%LEN/LEN,p=curve.getPointAt(u),t=curve.getTangentAt(u),l=Math.hypot(t.x,t.z);
   const k=lerpArr(K,r.s),kA=lerpArr(K,r.s+16);
@@ -318,7 +325,8 @@ function stepRider(r,dt){
   const offT=clamp(r.lane*0.55+line,-W+1.1,W-1.1);
   r.off+=(offT-r.off)*(1-Math.exp(-dt*1.6));
   r.g.position.set(p.x+(t.z/l)*r.off,p.y+0.05,p.z-(t.x/l)*r.off);
-  r.g.rotation.y=Math.atan2(t.x,t.z);
+  r.psi*=Math.exp(-dt*3);                           // heading left over when the autopilot takes over
+  r.g.rotation.y=Math.atan2(t.x,t.z)+r.psi;
   r.pitch+=(-Math.asin(clamp(t.y,-1,1))-r.pitch)*(1-Math.exp(-dt*8));
   r.g.rotation.x=r.pitch+(braking?0.015:-0.005);
   const leanT=-Math.sign(k)*Math.min(0.97,Math.atan(r.v*r.v*Math.abs(k)/G));
@@ -329,4 +337,4 @@ function stepRider(r,dt){
   r.wheels[0].rotation.x+=r.v*dt/0.305;r.wheels[1].rotation.x+=r.v*dt/0.312;
   r.tailLight.emissiveIntensity=braking?5:0.6;
 }
-export {riders,player,stepRider};
+export {riders,player,stepRider,resetRider};

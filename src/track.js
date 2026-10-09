@@ -181,6 +181,7 @@ wall(-BAR-0.2,1.2,3.6,fenceMat,0.7,3.4,PIT0,PIT1,false);
 strip(-EDGE-28,-EDGE-16.6,0.04,roadMat,16,PIT0,PIT1,()=>0.95);
 
 /* start / finish gantry */
+const startLights=[];
 (function(){
   const g=frameAt(0,0);
   const line=new THREE.Mesh(new THREE.PlaneGeometry(1.6,2*W),new THREE.MeshStandardMaterial({map:checkTex,roughness:0.7}));
@@ -194,8 +195,8 @@ strip(-EDGE-28,-EDGE-16.6,0.04,roadMat,16,PIT0,PIT1,()=>0.95);
   bTex.wrapS=bTex.wrapT=THREE.ClampToEdgeWrapping;
   const bMat=new THREE.MeshStandardMaterial({map:bTex,roughness:0.6,emissive:0xffffff,emissiveMap:bTex,emissiveIntensity:0.25});
   [-1,1].forEach(sd=>{const pl=new THREE.Mesh(new THREE.PlaneGeometry(2*span-1,2),bMat);pl.rotation.y=sd*Math.PI/2;pl.position.set(sd*0.47,8.4,0);g.add(pl);});
-  const pod=new THREE.MeshStandardMaterial({color:0x220000,emissive:lin(0xff3020),emissiveIntensity:2});
-  for(let i=-2;i<=2;i++){const l=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.2,14),pod);l.rotation.z=Math.PI/2;l.position.set(-0.55,7.2,i*1.2);g.add(l);}
+  for(let i=-2;i<=2;i++){const pod=new THREE.MeshStandardMaterial({color:0x220000,emissive:lin(0xff3020),emissiveIntensity:0});startLights.push(pod);
+    const l=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.2,14),pod);l.rotation.z=Math.PI/2;l.position.set(-0.55,7.2,i*1.2);g.add(l);}
 })();
 
 /* grandstands, pit garages */
@@ -240,4 +241,4 @@ function barrierAt(s,side){
   for(const z of tireZones)if(z.side===side&&mod(i-z.i0)<=z.len)return EDGE+14.6;
   return BAR-0.3;
 }
-export {barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};
+export {startLights,barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};

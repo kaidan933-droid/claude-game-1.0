@@ -6,6 +6,8 @@ Motorcycle race concept in three.js (r128) built with Vite.
     npm run dev      # http://localhost:5173
     npm run build    # bundle in dist/, serve with `npm run preview`
 
+Race: lights count down on the gantry, then 5 laps; results show when you finish (`Enter` races again).
+
 Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, `R` reset to track, `C` cycles cameras, `Space` pauses.
 
     src/main.js      game loop, pause
@@ -15,3 +17,5 @@ Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, 
     src/bikes.js     bike and rider models, AI
     src/cameras.js   chase / onboard / trackside / aerial
     src/hud.js       race panel, corner note, gears, minimap
+    src/race.js      countdown, lap timing, finish order
+    src/results.js   results screen

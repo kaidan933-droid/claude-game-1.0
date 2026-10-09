@@ -47,6 +47,11 @@
 
   <div class="crash" id="crash" role="status">Crash</div>
 
+  <div class="start" id="start" aria-live="polite">
+    <div class="lamps" id="lamps"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="msg" id="startMsg">Lights out and away we go</div>
+  </div>
+
   <div class="bl">
     <div class="cams" role="group" aria-label="Camera">
       <button data-cam="chase" aria-pressed="true">Chase</button>
@@ -56,6 +61,14 @@
     </div>
     <button class="pause" id="pause">Pause</button>
     <div class="hint">W/S or Up/Down throttle and brake, A/D or Left/Right steer, R reset, C camera, Space pause</div>
+  </div>
+</div>
+
+<div class="results" id="results" hidden role="dialog" aria-label="Race results">
+  <div class="panel card">
+    <h2>Finished</h2>
+    <table><thead><tr><th>Pos</th><th>Rider</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody></tbody></table>
+    <div class="actions"><button class="again" id="again">Race again</button><span class="hint2">or press Enter</span></div>
   </div>
 </div>
 

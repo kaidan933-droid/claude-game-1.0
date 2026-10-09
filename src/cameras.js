@@ -51,4 +51,5 @@ function updateCamera(dt){
 document.querySelectorAll('.cams button').forEach(b=>b.addEventListener('click',()=>setCam(b.dataset.cam)));
 const modes=['chase','onboard','trackside','aerial'];
 window.addEventListener('keydown',e=>{if(e.key==='c'||e.key==='C')setCam(modes[(modes.indexOf(camMode)+1)%modes.length]);});
-export {updateCamera,setCam};
+const snapCamera=()=>{camInit=false;};
+export {updateCamera,setCam,snapCamera};

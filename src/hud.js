@@ -1,6 +1,7 @@
-import {clamp,hexStr} from './core.js';
+import {clamp,hexStr,fmt} from './core.js';
 import {S,SIDE,LEN,ds,mod,corners} from './track.js';
 import {riders,player} from './bikes.js';
+import {race,standings} from './race.js';
 
 const minX=Math.min(...S.map(p=>p.x)),maxX=Math.max(...S.map(p=>p.x)),minZ=Math.min(...S.map(p=>p.z)),maxZ=Math.max(...S.map(p=>p.z));
 /* ---------------- minimap ---------------- */
@@ -32,11 +33,19 @@ for(let i=0;i<SEG;i++){const s=document.createElement('span');if(i>=8)s.classLis
 const segs=[...revEl.children];
 const GEARS=[0,78,118,158,198,240,999];
 const gearFor=k=>{let gi=1;while(k>=GEARS[gi]&&gi<6)gi++;return gi;};
-const fmt=t=>{const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(3);};
 const sfx=n=>['th','st','nd','rd'][n]||'th';
 const ARROWS={fast:'M20 44 C20 30 24 20 36 12',medium:'M18 44 L18 30 C18 20 24 15 36 15',tight:'M16 44 L16 24 C16 14 24 12 36 18',hairpin:'M13 44 L13 18 C13 3 35 3 35 18 L35 28'};
-let lapStart=0,best=null,lastLap=0,boardKey='',noteKey='';
-function updateHud(simTime){
+let boardKey='',noteKey='';
+const lamps=[...document.querySelectorAll('#lamps i')],startEl=document.getElementById('start'),startMsg=document.getElementById('startMsg');
+function updateStart(){
+  const show=race.state==='countdown'||(race.state==='racing'&&race.time<1.4);
+  startEl.classList.toggle('on',show);
+  lamps.forEach((l,i)=>l.classList.toggle('lit',race.state==='countdown'&&i<race.lit));
+  startMsg.textContent=race.state==='racing'?'GO!':race.lit?'':'Lights out and away we go';
+  startEl.classList.toggle('go',race.state==='racing');
+}
+function updateHud(){
+  updateStart();
   const gu=player.gripUse||0;
   $('gripBar').style.width=Math.min(100,gu*80)+'%';
   $('gripBar').parentElement.classList.toggle('slip',player.sliding);
@@ -46,10 +55,10 @@ function updateHud(simTime){
   const lo=GEARS[gi-1],hi=GEARS[gi]===999?300:GEARS[gi];
   const rpm=clamp(0.42+0.58*(kmh-lo)/(hi-lo),0,1),lit=Math.round(rpm*SEG);
   segs.forEach((s,i)=>s.classList.toggle('on',i<lit));
-  const lap=Math.floor(player.s/LEN);
-  if(lap>lastLap){const lt=simTime-lapStart;best=best===null?lt:Math.min(best,lt);lapStart=simTime;lastLap=lap;$('best').textContent=fmt(best);}
-  $('lap').textContent=(((lap%5)+5)%5+1)+' of 5';$('time').textContent=fmt(simTime-lapStart);
-  const order=[...riders].sort((a,b)=>b.s-a.s),pos=order.indexOf(player)+1;
+  $('lap').textContent=Math.min(race.laps,player.lapCount+1)+' of '+race.laps;
+  $('best').textContent=player.lapTimes.length?fmt(Math.min(...player.lapTimes)):'none yet';
+  $('time').textContent=fmt(player.finishTime!==null?player.finishTime:race.state==='countdown'?0:race.time-player.lapStart);
+  const order=standings(),pos=order.indexOf(player)+1;
   $('pos').textContent=pos;$('sfx').textContent=sfx(pos);
   const key=order.map(r=>r.num).join(',');
   if(key!==boardKey){boardKey=key;$('board').innerHTML=order.map((r,i)=>'<li class="'+(r===player?'me':'')+'"><span>'+(i+1)+'</span><i style="background:'+hexStr(r.color)+'"></i>'+r.name+'</li>').join('');}

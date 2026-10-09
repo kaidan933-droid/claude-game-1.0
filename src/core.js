@@ -64,4 +64,5 @@ function tex(w,h,draw,srgb){
 function speckle(g,w,h,cols,n,size){for(let i=0;i<n;i++){g.fillStyle=cols[(rnd()*cols.length)|0];const s=rnd()*size+0.5;g.fillRect(rnd()*w,rnd()*h,s,s);}}
 
 const std=(hex,rough,metal,extra)=>new THREE.MeshStandardMaterial(Object.assign({color:lin(hex),roughness:rough,metalness:metal||0},extra||{}));
-export {rnd,clamp,sstep,lin,hexStr,renderer,scene,camera,sky,sunDir,sun,HORIZON,tex,speckle,std};
+const fmt=t=>{const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(3);};
+export {fmt,rnd,clamp,sstep,lin,hexStr,renderer,scene,camera,sky,sunDir,sun,HORIZON,tex,speckle,std};
