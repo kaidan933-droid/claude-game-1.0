@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apex Run</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<canvas id="scene" aria-label="3D render of a scooter race on a hilly sunset circuit"></canvas>
+<div class="vig"></div>
+
+<div class="hud">
+  <section class="tl panel" aria-label="Race status">
+    <div class="place"><b id="pos">1</b><sup id="sfx">st</sup><span>/ 5</span></div>
+    <dl class="rows">
+      <dt>Lap</dt><dd id="lap">1 of 5</dd>
+      <dt>Time</dt><dd id="time">0:00.000</dd>
+      <dt>Best</dt><dd id="best">none yet</dd>
+    </dl>
+    <ol class="board" id="board"></ol>
+  </section>
+
+  <section class="note panel" id="note" aria-label="Next corner">
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="4" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+      <g id="arrowG"><path id="arrowP" d="" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/></g>
+    </svg>
+    <div class="cinfo"><span class="cname" id="cname">Turn 1</span><span class="ctype" id="ctype">Hairpin right</span><span class="cgear" id="cgear">Gear 2</span></div>
+    <div class="cdist"><b id="cdist">0</b><small id="cunit">m</small></div>
+  </section>
+
+  <div class="tr panel"><canvas id="map" width="320" height="320" aria-label="Track map"></canvas></div>
+
+  <section class="br panel" aria-label="Speed">
+    <div class="grip" aria-label="Tyre grip"><i id="gripBar"></i></div>
+    <div class="rev" id="rev"></div>
+    <div class="spd">
+      <div class="gear"><small>Gear</small><b id="gear">1</b></div>
+      <div class="kmh"><b id="spd">0</b><small>km/h</small></div>
+    </div>
+  </section>
+
+  <div class="crash" id="crash" role="status">Crash</div>
+
+  <div class="start" id="start" aria-live="polite">
+    <div class="lamps" id="lamps"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="msg" id="startMsg">Lights out and away we go</div>
+  </div>
+
+  <div class="bl">
+    <div class="cams" role="group" aria-label="Camera">
+      <button data-cam="chase" aria-pressed="true">Chase</button>
+      <button data-cam="onboard" aria-pressed="false">Onboard</button>
+      <button data-cam="trackside" aria-pressed="false">Trackside</button>
+      <button data-cam="aerial" aria-pressed="false">Aerial</button>
+    </div>
+    <button class="pause" id="pause">Pause</button>
+    <div class="hint">W/S or Up/Down throttle and brake, A/D or Left/Right steer, R reset, C camera, Space pause</div>
+  </div>
+</div>
+
+<div class="results" id="results" hidden role="dialog" aria-label="Race results">
+  <div class="panel card">
+    <h2>Finished</h2>
+    <table><thead><tr><th>Pos</th><th>Rider</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody></tbody></table>
+    <div class="actions"><button class="again" id="again">Race again</button><span class="hint2">or press Enter</span></div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
