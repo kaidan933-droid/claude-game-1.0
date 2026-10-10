@@ -1,7 +1,9 @@
 import {clamp,hexStr,fmt} from './core.js';
 import {S,SIDE,LEN,ds,mod,corners} from './track.js';
 import {riders,player} from './bikes.js';
-import {RPM_MAX} from './physics.js';
+import {IDLE,REDLINE,GEAR_TOP} from './physics.js';
+/* gear a rider would be in at a given speed (comfortably below the shift point) */
+const gearFor=kmh=>{for(let g=1;g<=6;g++)if(kmh<=GEAR_TOP[g-1]*0.93)return g;return 6;};
 import {race,standings} from './race.js';
 
 const minX=Math.min(...S.map(p=>p.x)),maxX=Math.max(...S.map(p=>p.x)),minZ=Math.min(...S.map(p=>p.z)),maxZ=Math.max(...S.map(p=>p.z));
@@ -51,8 +53,9 @@ function updateHud(){
   $('abs').classList.toggle('on',!!player.abs);
   $('crash').classList.toggle('on',!!player.crash);
   const kmh=player.v*3.6;$('spd').textContent=Math.round(kmh);
+  $('gear').textContent=player.gear||1;
   $('lean').textContent=Math.round(Math.abs(player.lean)*57.3)+'°';
-  const lit=Math.round(clamp((player.rpm-1800)/(RPM_MAX-1800),0,1)*SEG);
+  const lit=Math.round(clamp((player.rpm-IDLE)/(REDLINE-IDLE),0,1)*SEG);
   segs.forEach((s,i)=>s.classList.toggle('on',i<lit));
   $('lap').textContent=Math.min(race.laps,player.lapCount+1)+' of '+race.laps;
   $('best').textContent=player.lapTimes.length?fmt(Math.min(...player.lapTimes)):'none yet';
@@ -73,7 +76,7 @@ function updateHud(){
       $('cname').textContent='Turn '+pick.num+' of '+corners.length;
       $('ctype').textContent=pick.label;
       const ck=Math.round(pick.kmh/5)*5;
-      $('cgear').textContent=(!inside&&kmh>ck+8?'Brake to about ':'Take it at about ')+ck+' km/h';
+      $('cgear').textContent='Gear '+gearFor(ck)+', '+(!inside&&kmh>ck+8?'brake to about ':'about ')+ck+' km/h';
       $('cdist').textContent=inside?'Now':meters;
       $('cunit').textContent=inside?'':'m';
       $('arrowP').setAttribute('d',ARROWS[pick.kind]);

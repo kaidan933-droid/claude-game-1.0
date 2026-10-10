@@ -1,17 +1,19 @@
 import {startLights,LEN} from './track.js';
-import {riders,player,resetRider} from './bikes.js';
+import {riders,resetRider} from './bikes.js';
 import {controls} from './controls.js';
 
-/* countdown -> racing -> finished (when the player takes the flag; the others keep running) */
-export const race={state:'countdown',t:0,time:0,lit:0,goAt:6,laps:5,finishOrder:[],onFinish:null};
+/* menu/lobby -> countdown -> racing -> finished (when our rider takes the flag; the others keep running).
+   Online, the host picks the light-out delay and every machine runs its own countdown from 'start'. */
+export const race={state:'menu',t:0,time:0,lit:0,goAt:6,laps:5,finishOrder:[],onFinish:null,spectating:false};
 
 function setLights(n){
   race.lit=n;
   startLights.forEach((m,i)=>{m.emissiveIntensity=i<n?3.5:0;});
 }
-export function resetRace(){
+export const randomGoAt=()=>6+Math.random()*1.2;
+export function resetRace(goAt=randomGoAt()){
   riders.forEach(resetRider);
-  Object.assign(race,{state:'countdown',t:0,time:0,goAt:6+Math.random()*1.2,finishOrder:[]});
+  Object.assign(race,{state:'countdown',t:0,time:0,goAt,finishOrder:[],spectating:false});
   setLights(0);controls.takeReset();
 }
 export function standings(){
@@ -24,6 +26,7 @@ export function standings(){
 }
 /* call after the bikes have moved; lap and finish times are interpolated to the line crossing */
 export function stepRace(dt){
+  if(race.state==='menu'||race.state==='lobby')return;
   if(race.state==='countdown'){
     race.t+=dt;
     const lit=Math.min(5,Math.floor(race.t));            // one light a second
@@ -38,7 +41,7 @@ export function stepRace(dt){
       r.lapTimes.push(t-r.lapStart);r.lapStart=t;
       if(k>=race.laps){
         r.finishTime=t;race.finishOrder.push(r);
-        if(r===player){r.auto=true;r.crash=null;race.state='finished';race.onFinish&&race.onFinish();}
+        if(r.ctrl==='local'&&!r.auto){r.auto=true;r.crash=null;race.state='finished';race.onFinish&&race.onFinish(r);}
       }
     }
   }

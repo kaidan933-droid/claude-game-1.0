@@ -1,8 +1,9 @@
 /* All sound is synthesized with WebAudio, no sample files.
-   Engine: a single-cylinder four-stroke fires once every two revolutions, so the fundamental is
-   rpm/120 Hz (about 60 Hz at 7500 rpm). Pulse + saw through a soft clipper and a throttle-opened
-   lowpass, plus exhaust noise chopped at the firing rate. */
-let ctx=null,master=null,noiseBuf=null,muted=false,voices=[],fx=null,lastLit=0,lastState='',wasCrashed=false;
+   Engine: a 270-degree parallel twin fires twice every two revolutions, so the average firing rate
+   is rpm/60 Hz (about 160 Hz at 9500 rpm); the uneven 270/450 degree spacing adds a strong
+   rpm/120 sub-harmonic, the "lope". Saw + square through a soft clipper and a throttle-opened
+   lowpass, plus exhaust noise chopped at the firing rate. Only the 4 nearest other bikes get a voice. */
+let ctx=null,master=null,noiseBuf=null,muted=false,voices=[],allRiders=[],fx=null,lastLit=0,lastState='',wasCrashed=false;
 try{muted=localStorage.getItem('apex-muted')==='1';}catch(e){}
 
 function noiseSource(){const s=ctx.createBufferSource();s.buffer=noiseBuf;s.loop=true;s.start(0,Math.random()*2);return s;}
@@ -35,13 +36,13 @@ function makeEngine(level){
   const whine=ctx.createOscillator();whine.type='sine';const gw=ctx.createGain();gw.gain.value=0;whine.connect(gw);gw.connect(out);
   [saw,sq,sub,lfo,whine].forEach(o=>o.start());
   return {out,pan,lp,saw,sq,sub,lfo,whine,gw,level,
-    set(rpm,thr,v){
-      const t=ctx.currentTime,f=rpm/120;
+    set(rpm,thr,v,cut){
+      const t=ctx.currentTime,f=rpm/60;
       saw.frequency.setTargetAtTime(f,t,0.03);sq.frequency.setTargetAtTime(f*0.5,t,0.03);sub.frequency.setTargetAtTime(f,t,0.03);
-      lfo.frequency.setTargetAtTime(f,t,0.03);whine.frequency.setTargetAtTime(rpm/60*3.1,t,0.05);
-      lp.frequency.setTargetAtTime(300+thr*2200+rpm*0.12,t,0.05);
-      gw.gain.setTargetAtTime(0.012*Math.min(1,v/10),t,0.1);
-      out.gain.setTargetAtTime(this.level*(0.35+0.65*thr)*(rpm>1500?1:0.6),t,0.05);
+      lfo.frequency.setTargetAtTime(f,t,0.03);whine.frequency.setTargetAtTime(rpm/60*6.5,t,0.05);
+      lp.frequency.setTargetAtTime(350+thr*2800+rpm*0.16,t,0.05);
+      gw.gain.setTargetAtTime(0.008*Math.min(1,v/15),t,0.1);
+      out.gain.setTargetAtTime(this.level*(0.3+0.7*thr)*(cut?0.35:1)*(rpm>1200?1:0.6),t,0.02);
     }};
 }
 function makeNoise(type,freq,q){
@@ -67,7 +68,8 @@ function init(riders){
   const comp=ctx.createDynamicsCompressor();master.connect(comp);comp.connect(ctx.destination);
   noiseBuf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
   const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-  voices=riders.map(r=>({r,e:makeEngine(r.human?0.5:0.32)}));
+  voices=[makeEngine(0.5),makeEngine(0.3),makeEngine(0.3),makeEngine(0.3),makeEngine(0.3)];
+  allRiders=riders;
   fx={wind:makeNoise('lowpass',700,0.5),squeal:makeNoise('bandpass',1150,9),gravel:makeNoise('lowpass',380,0.7),scrape:makeNoise('highpass',2600,0.8)};
 }
 export function setupAudio(riders){
@@ -78,7 +80,7 @@ export function setupAudio(riders){
   const toggle=()=>{muted=!muted;try{localStorage.setItem('apex-muted',muted?'1':'0');}catch(e){}
     if(master)master.gain.setTargetAtTime(muted?0:0.8,ctx.currentTime,0.05);show();};
   btn?.addEventListener('click',toggle);
-  window.addEventListener('keydown',e=>{if(e.code==='KeyM')toggle();});
+  window.addEventListener('keydown',e=>{if(e.code==='KeyM'&&e.target.tagName!=='INPUT')toggle();});
 }
 export const audioReady=()=>!!ctx;
 
@@ -90,10 +92,12 @@ export function updateAudio(camera,player,race,paused){
   if(L.positionX){L.positionX.value=p.x;L.positionY.value=p.y;L.positionZ.value=p.z;
     L.forwardX.value=-e[8];L.forwardY.value=-e[9];L.forwardZ.value=-e[10];L.upX.value=e[4];L.upY.value=e[5];L.upZ.value=e[6];}
   else{L.setPosition(p.x,p.y,p.z);L.setOrientation(-e[8],-e[9],-e[10],e[4],e[5],e[6]);}
-  for(const {r,e:en} of voices){
-    const q=r.g.position;setPos(en.pan,q.x,q.y+0.4,q.z);
-    en.set(paused?1800:r.rpm,paused?0:(r.human&&!r.auto?r.thr:(r.brk>0?0.1:0.9)),r.v);
-  }
+  /* voice 0 follows our bike, the rest the nearest four others */
+  const near=allRiders.filter(r=>r!==player).map(r=>[r,r.g.position.distanceToSquared(p)]).sort((a,b)=>a[1]-b[1]);
+  [player,...near.slice(0,4).map(x=>x[0])].forEach((r,i)=>{
+    const en=voices[i],q=r.g.position;setPos(en.pan,q.x,q.y+0.5,q.z);
+    en.set(paused?1300:r.rpm,paused?0:r.thr,r.v,r.shiftT>0);
+  });
   const v=paused?0:player.v;
   fx.wind.gain.setTargetAtTime(0.22*Math.min(1,(v/35)**2),t,0.1);
   fx.squeal.gain.setTargetAtTime(paused?0:Math.min(0.25,(player.sliding?0.18:0)+(player.abs?0.06:0)+Math.max(0,player.gripUse-0.92)*0.6),t,0.05);
