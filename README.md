@@ -1,6 +1,6 @@
 # Apex Run
 
-Motorcycle race concept in three.js (r128) built with Vite.
+Scooter race concept in three.js (r128) built with Vite.
 
     npm install
     npm run dev      # http://localhost:5173
@@ -14,7 +14,7 @@ Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, 
     src/core.js      renderer, scene, sky, lights, shared helpers
     src/track.js     circuit, speed profile, corners, barriers, stands
     src/scenery.js   terrain, mountains, clouds, trees
-    src/bikes.js     bike and rider models, AI racers (skill, passing, mistakes), contact
+    src/bikes.js     vespa-style scooter and rider models, AI racers (skill, passing, mistakes), contact
     src/cameras.js   chase / onboard / trackside / aerial
     src/hud.js       race panel, corner note, gears, minimap
     src/race.js      countdown, lap timing, finish order

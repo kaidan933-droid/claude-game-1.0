@@ -52,104 +52,95 @@ const BIKE_SHARED={
   white:std(0xeeebe4,0.5),
   glove:new THREE.MeshStandardMaterial({color:lin(0x202024),roughness:0.6})
 };
-function makeWheel(hw,r,front,M){
-  const w=new THREE.Group();
-  const prof=[];for(let k=0;k<=20;k++){const t=k/20*Math.PI;prof.push(new THREE.Vector2(0.214+(r-0.214)*Math.pow(Math.sin(t),0.5),-hw*Math.cos(t)*(1+0.12*Math.sin(t))));}
-  const tg=new THREE.LatheGeometry(prof,56);tg.rotateZ(Math.PI/2);
+/* small scooter wheel: balloon tyre on a solid split rim */
+const WHEEL_R=0.25;
+function makeWheel(r,hw,M){
+  const w=new THREE.Group(),ri=r*0.6;
+  const prof=[];for(let k=0;k<=20;k++){const t=k/20*Math.PI;prof.push(new THREE.Vector2(ri+(r-ri)*Math.pow(Math.sin(t),0.6),-hw*Math.cos(t)*(1+0.1*Math.sin(t))));}
+  const tg=new THREE.LatheGeometry(prof,48);tg.rotateZ(Math.PI/2);
   const tire=new THREE.Mesh(tg,M.tire);tire.castShadow=true;w.add(tire);
-  const rimG=new THREE.CylinderGeometry(0.215,0.215,hw*1.7,48,1,true);rimG.rotateZ(Math.PI/2);
-  const rim=new THREE.Mesh(rimG,M.rim);w.add(rim);
-  [-1,1].forEach(sd=>{const lip=new THREE.Mesh(new THREE.TorusGeometry(0.213,0.008,6,48),M.rim);lip.rotation.y=Math.PI/2;lip.position.x=sd*hw*0.85;w.add(lip);});
-  for(let k=0;k<10;k++){const a=Math.floor(k/2)/5*Math.PI*2+(k%2?0.12:-0.12),sp=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.165,0.024),M.rim);
-    sp.position.set(0,Math.cos(a)*0.128,Math.sin(a)*0.128);sp.rotation.x=a;w.add(sp);}
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.048,hw*1.6,20),M.rim);hub.rotation.z=Math.PI/2;w.add(hub);
-  const discG=new THREE.CylinderGeometry(front?0.16:0.11,front?0.16:0.11,0.006,48);discG.rotateZ(Math.PI/2);
-  const carrierG=new THREE.CylinderGeometry(front?0.105:0.07,front?0.105:0.07,0.012,24);carrierG.rotateZ(Math.PI/2);
-  (front?[-1,1]:[1]).forEach(sd=>{const d=new THREE.Mesh(discG,M.disc);d.position.x=sd*(hw+0.016);w.add(d);
-    const c=new THREE.Mesh(carrierG,M.gold);c.position.x=sd*(hw+0.016);w.add(c);});
-  if(!front){const spr=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.012,30),M.black);spr.rotation.z=Math.PI/2;spr.position.x=-(hw+0.018);w.add(spr);}
+  const rimG=new THREE.CylinderGeometry(ri,ri,hw*1.7,36);rimG.rotateZ(Math.PI/2);
+  w.add(new THREE.Mesh(rimG,M.rim));
+  [-1,1].forEach(sd=>{
+    const lip=new THREE.Mesh(new THREE.TorusGeometry(ri,0.007,6,40),M.chrome);lip.rotation.y=Math.PI/2;lip.position.x=sd*hw*0.86;w.add(lip);
+    ball(w,M.chrome,V3(sd*hw*0.9,0,0),[0.025,0.055,0.055]);                 // hub cap
+    for(let k=0;k<5;k++){const t=k/5*Math.PI*2;ball(w,M.black,V3(sd*hw*0.87,Math.cos(t)*0.085,Math.sin(t)*0.085),[0.008,0.011,0.011]);}  // rim bolts
+  });
   return w;
 }
 
+/* vespa-style scooter: step-through floor, leg shield, bulbous rear cowl over the engine */
 function makeBike(r){
   const M=Object.assign({},BIKE_SHARED);
-  const PAINT=lin(r.color),ACC=lin(r.accent),PIN=lin(0xf3efe7),BELLY=lin(0x1c1c20);
-  M.body=new THREE.MeshPhysicalMaterial({color:0xffffff,vertexColors:true,metalness:0.15,roughness:0.28,clearcoat:1,clearcoatRoughness:0.04,side:THREE.DoubleSide});
-  M.paint=new THREE.MeshPhysicalMaterial({color:PAINT,metalness:0.15,roughness:0.28,clearcoat:1,clearcoatRoughness:0.04});
-  M.acc=new THREE.MeshPhysicalMaterial({color:ACC,metalness:0.15,roughness:0.3,clearcoat:1,clearcoatRoughness:0.05});
-  M.rim=r.rim==='gold'?M.gold:std(r.rimColor||0x16161a,0.35,0.6);
+  const PAINT=lin(r.color),ACC=lin(r.accent),PIN=lin(0xf3efe7);
+  M.body=new THREE.MeshPhysicalMaterial({color:0xffffff,vertexColors:true,metalness:0.1,roughness:0.25,clearcoat:1,clearcoatRoughness:0.04,side:THREE.DoubleSide});
+  M.paint=new THREE.MeshPhysicalMaterial({color:PAINT,metalness:0.1,roughness:0.25,clearcoat:1,clearcoatRoughness:0.04,side:THREE.DoubleSide});
+  M.acc=new THREE.MeshPhysicalMaterial({color:ACC,metalness:0.1,roughness:0.3,clearcoat:1,clearcoatRoughness:0.05});
+  M.rim=std(0xc9ccd1,0.3,0.9);M.chrome=std(0xe9ebef,0.12,1);
+  M.seat=new THREE.MeshStandardMaterial({color:lin(0x3a2a22),roughness:0.55});
   M.suit=new THREE.MeshPhysicalMaterial({color:lin(r.suit),roughness:0.5,clearcoat:0.35,clearcoatRoughness:0.4});
   M.suit2=new THREE.MeshPhysicalMaterial({color:ACC,roughness:0.5,clearcoat:0.35,clearcoatRoughness:0.4});
   M.tail=new THREE.MeshStandardMaterial({color:0x200000,emissive:lin(0xff2414),emissiveIntensity:0.6});
   const g=new THREE.Group();g.rotation.order='YXZ';
 
-  /* wheels */
-  const fw=makeWheel(0.062,0.305,true,M);fw.position.set(0,0.305,0.71);g.add(fw);
-  const rw=makeWheel(0.1,0.312,false,M);rw.position.set(0,0.312,-0.71);g.add(rw);
+  const fw=makeWheel(WHEEL_R,0.06,M);fw.position.set(0,WHEEL_R,0.6);g.add(fw);
+  const rw=makeWheel(WHEEL_R,0.065,M);rw.position.set(0,WHEEL_R,-0.6);g.add(rw);
 
-  /* livery painted per vertex */
-  const livery=(x,y,z)=>{const line=0.5+(z-0.05)*0.42;if(y<line-0.012)return y<0.36?BELLY:ACC;if(y<line+0.018)return PIN;return PAINT;};
-  const tailLiv=(x,y,z)=>{const line=0.985+(z+0.3)*-0.14;if(y<line-0.01)return ACC;if(y<line+0.012)return PIN;return PAINT;};
-  const body=new THREE.Mesh(loft([
-    [0.715,0.84,0.77,0.025,0.025],[0.685,0.925,0.665,0.09,0.1],[0.6,0.985,0.565,0.14,0.17],[0.48,1.005,0.565,0.16,0.21],
-    [0.36,1.02,0.37,0.17,0.22],[0.22,1.06,0.29,0.168,0.205],[0.06,1.10,0.285,0.155,0.18],[-0.06,1.09,0.32,0.145,0.16],
-    [-0.15,1.03,0.42,0.13,0.13],[-0.2,0.96,0.58,0.07,0.07]],70,40,0.72,livery),M.body);
-  body.castShadow=true;g.add(body);
-  const tail=new THREE.Mesh(loft([
-    [-0.1,0.99,0.86,0.12,0.11],[-0.28,0.985,0.88,0.125,0.12],[-0.46,1.02,0.9,0.115,0.11],
-    [-0.62,1.09,0.96,0.09,0.085],[-0.76,1.125,1.02,0.058,0.055],[-0.865,1.12,1.07,0.02,0.02]],50,32,0.72,tailLiv),M.body);
-  tail.castShadow=true;g.add(tail);
-  const seat=new THREE.Mesh(loft([[-0.1,1.0,0.965,0.105,0.105],[-0.25,0.997,0.955,0.118,0.118],[-0.42,1.025,0.975,0.1,0.1],[-0.5,1.045,1.0,0.05,0.05]],24,24,0.6),M.black);
-  g.add(seat);
-  const screen=new THREE.Mesh(loft([[0.625,0.955,0.93,0.08,0.09],[0.52,1.06,0.975,0.135,0.145],[0.42,1.118,1.0,0.13,0.14],[0.345,1.122,1.04,0.085,0.1]],30,30,0.75),M.glass);
-  screen.renderOrder=2;g.add(screen);
-  ball(g,M.black,V3(0,1.03,0.40),[0.07,0.03,0.05]);                         // dash
-  ball(g,M.black,V3(0,0.79,0.705),[0.045,0.03,0.02]);                        // ram-air intake
-  [-1,1].forEach(sd=>{
-    box(g,M.head,V3(sd*0.088,0.86,0.672),[0.06,0.014,0.02],[0,sd*0.5,sd*0.15]);  // headlight slits
-    box(g,M.carbon,V3(sd*0.215,0.86,0.48),[0.11,0.01,0.085],[0,0,sd*-0.18]);      // winglets
-    box(g,M.carbon,V3(sd*0.255,0.88,0.48),[0.012,0.05,0.085],[0,0,0]);
-  });
-  box(g,M.tail,V3(0,1.09,-0.862),[0.07,0.025,0.012]);
+  /* rear cowl, painted per vertex with a pinstripe and darker skirt */
+  const livery=(x,y,z)=>y<0.4?ACC:(y>0.55&&y<0.575)?PIN:PAINT;
+  const cowl=new THREE.Mesh(loft([
+    [-0.02,0.60,0.34,0.09,0.11],[-0.14,0.74,0.31,0.17,0.2],[-0.32,0.80,0.33,0.22,0.25],[-0.52,0.80,0.38,0.22,0.24],
+    [-0.70,0.76,0.44,0.17,0.17],[-0.82,0.70,0.52,0.09,0.08],[-0.88,0.65,0.58,0.02,0.02]],60,40,0.9,livery),M.body);
+  cowl.castShadow=true;g.add(cowl);
+  const seat=new THREE.Mesh(loft([[-0.06,0.86,0.79,0.1,0.11],[-0.25,0.875,0.79,0.135,0.14],[-0.5,0.89,0.79,0.13,0.13],[-0.68,0.88,0.78,0.08,0.08]],24,24,0.7),M.seat);
+  seat.castShadow=true;g.add(seat);
 
-  /* front end: forks, clamps, bars, fender, calipers */
-  const fa=V3(0,0.305,0.71);
-  [-1,1].forEach(sd=>{
-    const top=V3(sd*0.1,1.0,0.405),mid=V3(sd*0.105,0.66,0.555),bot=V3(sd*0.112,0.305,0.71);
-    rod(g,top,mid,0.026,0.026,M.gold,16);
-    rod(g,mid,bot,0.032,0.03,M.black,16);
-    box(g,M.alu,V3(sd*0.097,0.42,0.62),[0.026,0.09,0.06],[0.4,0,0]);            // caliper
-    rod(g,V3(sd*0.09,0.985,0.40),V3(sd*0.27,0.955,0.375),0.012,0.012,M.black,10);  // clip-on
-    rod(g,V3(sd*0.2,0.955,0.375),V3(sd*0.28,0.952,0.372),0.018,0.018,M.rubber,12); // grip
-    rod(g,V3(sd*0.17,0.965,0.39),V3(sd*0.28,0.96,0.45),0.005,0.004,M.alu,6);       // lever
-  });
-  box(g,M.alu,V3(0,1.0,0.405),[0.24,0.03,0.07],[-0.42,0,0]);
-  box(g,M.alu,V3(0,0.88,0.46),[0.22,0.03,0.06],[-0.42,0,0]);
-  const fenG=new THREE.TorusGeometry(0.345,0.045,8,22,1.55);fenG.scale(1,1,1.5);
-  const fender=new THREE.Mesh(fenG,M.paint);fender.rotation.set(0.95,Math.PI/2,0);fender.position.copy(fa);fender.castShadow=true;g.add(fender);
+  /* floorboard with rubber runners, engine block and swingarm under the cowl */
+  box(g,M.paint,V3(0,0.22,0.19),[0.36,0.05,0.52]);
+  for(let k=-2;k<=2;k++)box(g,M.rubber,V3(k*0.06,0.248,0.2),[0.025,0.008,0.42]);
+  box(g,M.black,V3(0.06,0.3,-0.42),[0.14,0.14,0.38]);
+  ball(g,M.black,V3(0.2,0.3,-0.52),[0.05,0.06,0.16]);                         // muffler
+  rod(g,V3(0.2,0.31,-0.66),V3(0.21,0.34,-0.74),0.015,0.015,M.chrome,8);
 
-  /* chassis: frame spars, swingarm, shock, exhaust, pegs */
+  /* leg shield, curved toward the rider, with the horn grille "tie" */
+  const shield=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.40,0.72,28,1,true,-0.75,1.5),M.paint);
+  shield.position.set(0,0.60,0.10);shield.castShadow=true;g.add(shield);
+  box(g,M.chrome,V3(0,0.8,0.452),[0.05,0.2,0.012],[-0.08,0,0]);
+  box(g,M.black,V3(0,0.8,0.458),[0.03,0.16,0.006],[-0.08,0,0]);
+
+  /* front end: steering column, single-sided link, fender */
+  rod(g,V3(0,0.97,0.41),V3(0,0.52,0.5),0.032,0.032,M.paint,12);
+  rod(g,V3(-0.08,0.55,0.5),V3(-0.08,WHEEL_R,0.6),0.026,0.022,M.black,10);
+  rod(g,V3(-0.08,0.55,0.5),V3(0,0.55,0.5),0.02,0.02,M.black,8);
+  ball(g,M.paint,V3(0,0.45,0.6),[0.09,0.12,0.25]);                            // fender
+  ball(g,M.chrome,V3(0,0.565,0.6),[0.012,0.012,0.08]);                        // fender crest
+
+  /* headset: bars, round headlight, speedo, mirrors */
+  ball(g,M.paint,V3(0,0.99,0.42),[0.11,0.07,0.1]);
+  rod(g,V3(-0.27,0.99,0.4),V3(0.27,0.99,0.4),0.022,0.022,M.paint,10);
   [-1,1].forEach(sd=>{
-    rod(g,V3(sd*0.12,0.93,0.36),V3(sd*0.155,0.62,-0.13),0.03,0.03,M.alu,10);
-    box(g,M.alu,V3(sd*0.15,0.55,-0.16),[0.03,0.16,0.12]);
-    const arm=box(g,M.alu,V3(sd*0.13,0.42,-0.44),[0.035,0.085,0.6]);arm.rotation.x=-0.35;
-    rod(g,V3(sd*0.19,0.53,-0.25),V3(sd*0.235,0.53,-0.25),0.012,0.012,M.alu,8);   // pegs
-    box(g,M.alu,V3(sd*0.17,0.62,-0.27),[0.012,0.18,0.05],[0.4,0,0]);             // hanger
+    rod(g,V3(sd*0.25,0.99,0.4),V3(sd*0.35,0.99,0.4),0.021,0.021,M.rubber,12);     // grips
+    rod(g,V3(sd*0.2,1.0,0.42),V3(sd*0.31,1.0,0.47),0.005,0.004,M.chrome,6);       // levers
+    rod(g,V3(sd*0.22,1.01,0.4),V3(sd*0.3,1.2,0.38),0.006,0.006,M.chrome,6);       // mirror stalks
+    ball(g,M.chrome,V3(sd*0.31,1.22,0.38),[0.05,0.035,0.012]);
   });
-  rod(g,V3(0,0.48,-0.28),V3(0,0.86,-0.18),0.026,0.026,M.spring,10);
-  rod(g,V3(0,0.46,-0.28),V3(0,0.9,-0.17),0.012,0.012,M.alu,8);
-  box(g,M.black,V3(0,0.5,0.0),[0.3,0.26,0.36]);                                // engine
-  rod(g,V3(0.08,0.36,-0.08),V3(0.16,0.5,-0.36),0.04,0.04,M.ti,12);
-  rod(g,V3(0.16,0.5,-0.36),V3(0.19,0.66,-0.66),0.052,0.06,M.ti,16);
-  ball(g,M.black,V3(0.19,0.665,-0.665),[0.045,0.045,0.02],[0.45,0,0]);          // exhaust tip
-  /* numbers on the tail */
+  const hlG=new THREE.CylinderGeometry(0.065,0.06,0.05,28);hlG.rotateX(Math.PI/2);
+  const hl=new THREE.Mesh(hlG,M.chrome);hl.position.set(0,1.0,0.5);g.add(hl);
+  const lens=new THREE.Mesh(new THREE.CircleGeometry(0.055,28),M.head);lens.position.set(0,1.0,0.526);g.add(lens);
+  const speedo=new THREE.Mesh(new THREE.CircleGeometry(0.04,24),M.white);speedo.position.set(0,1.065,0.4);speedo.rotation.x=-1.1;g.add(speedo);
+
+  /* rear rack and tail light */
+  [-1,1].forEach(sd=>rod(g,V3(sd*0.09,0.86,-0.66),V3(sd*0.09,0.85,-0.84),0.008,0.008,M.chrome,6));
+  rod(g,V3(-0.09,0.85,-0.84),V3(0.09,0.85,-0.84),0.008,0.008,M.chrome,6);
+  box(g,M.tail,V3(0,0.66,-0.885),[0.1,0.045,0.02]);
+
+  /* race numbers on the side panels and leg shield */
   const nt=numberTex(r.num,r.color);
-  [-1,1].forEach(sd=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(0.17,0.11),new THREE.MeshStandardMaterial({map:nt,roughness:0.35,transparent:true}));
-    p.position.set(sd*0.118,1.02,-0.5);p.rotation.y=Math.atan2(sd,-0.16);g.add(p);});
-  const nose=new THREE.Mesh(new THREE.CircleGeometry(0.055,24),new THREE.MeshStandardMaterial({map:nt,roughness:0.35}));
-  nose.position.set(0,0.89,0.683);nose.rotation.x=-0.75;g.add(nose);
+  [-1,1].forEach(sd=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(0.17,0.12),new THREE.MeshStandardMaterial({map:nt,roughness:0.35,transparent:true}));
+    p.position.set(sd*0.247,0.6,-0.42);p.rotation.y=sd*Math.PI/2;g.add(p);});
+  const nose=new THREE.Mesh(new THREE.CircleGeometry(0.07,24),new THREE.MeshStandardMaterial({map:nt,roughness:0.35}));
+  nose.position.set(0,0.62,0.478);nose.rotation.x=-0.08;g.add(nose);
 
-  /* rider */
   const rig=makeRider(g,M);
   scene.add(g);
   return {g,helmet:rig.helmet,rig,wheels:[fw,rw],tailLight:M.tail};
@@ -171,7 +162,7 @@ function makeRider(g,M){
   bl('pelvis',[0.15,0.12,0.14],M.suit);
   const torso=new THREE.Mesh(SPH,M.suit);torso.castShadow=true;g.add(torso);P.torso=torso;
   const chest=new THREE.Mesh(SPH,M.suit2);chest.castShadow=true;g.add(chest);P.chest=chest;
-  bl('hump',[0.11,0.085,0.17],M.paint);
+  bl('hump',[0.11,0.085,0.17],M.paint);P.hump.visible=false;   // no aero hump on a scooter rider
   mk('neck',0.05,0.05,M.black);
   const helmet=new THREE.Group();g.add(helmet);
   ball(helmet,M.paint,V3(0,0,0),[0.145,0.15,0.168]);
@@ -188,17 +179,17 @@ function makeRider(g,M){
 }
 function poseRider(R,a,inSide,lean){
   const J=R.j,P=R.parts,sh=inSide*0.16*a;
-  J.P.set(sh,1.03-0.035*a,-0.3);
-  J.N.set(sh*1.35,1.3-0.05*a,0.15);
-  J.H.set(sh*1.6,1.355-0.075*a,0.29);
+  J.P.set(sh,0.96,-0.25);
+  J.N.set(sh*1.25,1.45-0.03*a,-0.05);
+  J.H.set(sh*1.35,1.6-0.03*a,0.02);
   [-1,1].forEach(sd=>{const s=sd<0?'L':'R',inside=sd===inSide;
-    J['hip'+s].set(sh+sd*0.105,0.99-0.035*a,-0.28);
-    if(inside)J['knee'+s].set(sd*(0.215+0.27*a),0.88-0.17*a,0.1-0.03*a);
-    else J['knee'+s].set(sd*0.21+sh*0.35,0.88,0.1);
-    J['ankle'+s].set(sd*0.205,0.585,-0.2);
-    J['toe'+s].set(sd*(0.215+(inside?0.04*a:0)),0.53,-0.05);
+    J['hip'+s].set(sh+sd*0.105,0.93,-0.23);
+    if(inside)J['knee'+s].set(sd*(0.19+0.12*a),0.86-0.04*a,0.14);
+    else J['knee'+s].set(sd*0.18+sh*0.3,0.86,0.14);
+    J['ankle'+s].set(sd*0.14,0.35,0.2);
+    J['toe'+s].set(sd*0.14,0.27,0.33);
     J['sh'+s].set(J.N.x+sd*0.18,J.N.y-0.035,J.N.z-0.03);
-    J['hand'+s].set(sd*0.255,0.957,0.37);
+    J['hand'+s].set(sd*0.3,0.99,0.4);
     const el=J['el'+s].copy(J['sh'+s]).lerp(J['hand'+s],0.5);el.x+=sd*(0.06+(inside?0.03*a:0));el.y-=0.075;el.z-=0.03;
     J['wr'+s].copy(J['hand'+s]).sub(el).normalize().multiplyScalar(-0.05).add(J['hand'+s]);
     setRod(P['thigh'+s],J['hip'+s],J['knee'+s]);setRod(P['shin'+s],J['knee'+s],J['ankle'+s]);setRod(P['boot'+s],J['ankle'+s],J['toe'+s]);
@@ -254,7 +245,7 @@ function placePlayer(r,dt,leanT,leanK,amtLean){
   r.g.rotation.z=r.lean;
   const amt=clamp((Math.abs(r.lean)-0.2)/0.5,0,1),inSide=r.lean>0?-1:1;
   poseRider(r.rig,amt,inSide,Math.max(-1,Math.min(1,r.lean)));
-  r.wheels[0].rotation.x+=r.v*dt/0.305;r.wheels[1].rotation.x+=r.v*dt/0.312;
+  r.wheels[0].rotation.x+=r.v*dt/WHEEL_R;r.wheels[1].rotation.x+=r.v*dt/WHEEL_R;
 }
 function stepCrash(r,dt){
   const k=r.crash;k.t+=dt;
@@ -386,7 +377,7 @@ function stepRider(r,dt){
   r.g.rotation.z=r.lean;
   const amt=clamp((Math.abs(r.lean)-0.2)/0.5,0,1),inSide=r.lean>0?-1:1;
   poseRider(r.rig,amt,inSide,r.lean);
-  r.wheels[0].rotation.x+=r.v*dt/0.305;r.wheels[1].rotation.x+=r.v*dt/0.312;
+  r.wheels[0].rotation.x+=r.v*dt/WHEEL_R;r.wheels[1].rotation.x+=r.v*dt/WHEEL_R;
   r.tailLight.emissiveIntensity=braking?5:0.6;
 }
 /* bike-to-bike contact: push apart, the rider behind loses speed, a hard rear-end shunt crashes the player */
