@@ -55,7 +55,7 @@ export function updateCamera(dt,e,vis){
     camera.position.y+=Math.sin(shake*31)*0.012*sp*sp;
     camera.lookAt(look);
   }else if(mode==='bonnet'||mode==='cockpit'){
-    body.updateMatrixWorld(true);
+    root.updateMatrixWorld(true);
     if(mode==='bonnet')eye.set(0,1.02,0.55);else eye.copy(DRIVER_EYE);
     /* head pushed around by g-forces, a little ahead into corners */
     const hx=clamp(-c.ayF*0.004,-0.05,0.05),hy=clamp(c.axF*0.0025,-0.035,0.035);
@@ -66,7 +66,7 @@ export function updateCamera(dt,e,vis){
     camera.position.y+=Math.sin(shake*47)*vib+Math.sin(shake*13.3)*vib*0.5+(c.landing||0)*0.02*Math.sin(shake*60);
     const yawT=lookBack?Math.PI:clamp(T.lerp(T.K,e.s+18)*-14,-0.22,0.22)*(mode==='cockpit'?1:0.4);
     headYaw+=(yawT-headYaw)*Math.min(1,dt*(lookBack?12:3));
-    tmp.set(Math.sin(headYaw),-0.06,Math.cos(headYaw)).applyQuaternion(body.getWorldQuaternion(new THREE.Quaternion()));
+    tmp.set(Math.sin(headYaw),mode==="cockpit"?-0.015:-0.06,Math.cos(headYaw)).applyQuaternion(body.getWorldQuaternion(new THREE.Quaternion()));
     look.copy(camera.position).addScaledVector(tmp,10);
     up.set(0,1,0).applyQuaternion(body.getWorldQuaternion(new THREE.Quaternion()));
     camera.up.copy(WUP).lerp(up,0.85).normalize();

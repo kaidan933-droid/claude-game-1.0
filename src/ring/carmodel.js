@@ -200,10 +200,10 @@ export function buildCar(color,num,opts={}){
   add(B(0.36,0.09,0.16),dash,0.36,0.93,CAB0-0.42,0.35,0,0,false);
   const gauge=new THREE.MeshStandardMaterial({color:0x000000,emissive:new THREE.Color(0.9,0.75,0.45),emissiveIntensity:0.25,roughness:0.4});
   add(B(0.3,0.08,0.01),gauge,0.36,0.91,CAB0-0.505,-0.35,0,0,false);
-  const wheel=new THREE.Group();wheel.position.set(0.36,0.88,CAB0-0.62);wheel.rotation.x=-0.3;body.add(wheel);
-  const rimW=new THREE.Mesh(new THREE.TorusGeometry(0.175,0.018,8,28),std(0x1c1c1e,0.7));wheel.add(rimW);
+  const wheel=new THREE.Group();wheel.position.set(0.36,0.86,CAB0-0.6);wheel.rotation.x=-0.35;body.add(wheel);
+  const rimW=new THREE.Mesh(new THREE.TorusGeometry(0.16,0.016,8,28),std(0x1c1c1e,0.7));wheel.add(rimW);
   const hub=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.05,0.03),std(0x2a2a2d,0.6));wheel.add(hub);
-  const mark=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.025,0.025),std(0xf2c230,0.5));mark.position.y=0.175;wheel.add(mark);
+  const mark=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.025,0.025),std(0xf2c230,0.5));mark.position.y=0.16;wheel.add(mark);
   [-1,1].forEach(s=>{add(B(0.5,0.08,0.55),dash,s*0.36,0.36,-0.6,0,0,0,false);add(B(0.5,0.7,0.1),dash,s*0.36,0.68,-0.88,-0.15,0,0,false);});
   const cage=std(0x2a2a2d,0.5,0.6);
   [-1,1].forEach(s=>{add(B(0.03,0.03,1.0),cage,s*0.56,1.09,-0.7,0.1,0,0,false);add(B(0.035,0.5,0.035),cage,s*0.6,0.95,-1.05,0,0,0,false);});
@@ -238,5 +238,5 @@ export function buildCar(color,num,opts={}){
 }
 const aoTex=tex(64,128,(g,w,h)=>{const gr=g.createRadialGradient(w/2,h/2,4,w/2,h/2,w*0.7);gr.addColorStop(0,'rgba(0,0,0,0.85)');gr.addColorStop(0.6,'rgba(0,0,0,0.45)');gr.addColorStop(1,'rgba(0,0,0,0)');
   g.save();g.scale(1,2);g.fillStyle=gr;g.fillRect(0,0,w,h/2);g.restore();},false);
-export const DRIVER_EYE=new THREE.Vector3(0.36,1.1,-0.42);
+export const DRIVER_EYE=new THREE.Vector3(0.36,1.07,-0.28);
 export {NOSE,TAIL,CAB0};

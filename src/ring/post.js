@@ -56,7 +56,7 @@ const FinalShader={
     vec3 g=warm*(exp(-r*14.0)*2.2+exp(-r*4.0)*0.42+exp(-r*1.5)*0.12);
     float an=atan(d.y,d.x);
     float star=pow(abs(cos(an*3.0+0.35)),90.0)+0.55*pow(abs(cos(an*4.0+1.2)),140.0)+0.4*pow(abs(cos(an*7.0+0.2)),200.0);
-    g+=warm*star*exp(-r*3.2)*1.6*(0.85+0.15*sin(time*7.0));
+    g+=warm*star*exp(-r*3.4)*1.2*(0.85+0.15*sin(time*7.0));
     g+=vec3(0.85,0.75,0.65)*exp(-abs(d.y)*110.0)*exp(-abs(d.x)*1.8)*0.3;
     /* ghosts mirrored through the centre, coloured by the lens coatings */
     vec2 ax=vec2(0.5)-sunUV;
@@ -79,7 +79,7 @@ const FinalShader={
     /* veiling glare: stray light lifts the blacks and washes out colour */
     float v=veil;
     float lum=dot(col,vec3(0.2126,0.7152,0.0722));
-    col=mix(col,vec3(lum),v*0.3)+warm*v*0.22;
+    col=mix(col,vec3(lum),v*0.25)+warm*v*0.15;
     col*=exposure;
     col=aces(col);
     /* vignette and a little grain */

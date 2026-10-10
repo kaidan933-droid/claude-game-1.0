@@ -82,7 +82,7 @@ export function resetCars(){
     const row=Math.floor(e.grid/2),side=e.grid%2?1:-1;
     const s=-12-row*9-(e.grid%2)*4.5,d=side*2.3;
     const p=trackPose(s,d);
-    placeCar(e.car,p.x,p.z,p.y,p.h);
+    placeCar(e.car,p.x,p.z,p.y,p.h);e.gridPose=[p.x,p.z,p.h];
     e.car.autoShift=e.ai?true:e.car.autoShift;
     Object.assign(e,{idx:p.i,s:((s%LEN)+LEN)%LEN,d,lap:-1,prog:s,lapStart:0,lapTimes:[],finish:null,
       offset:0,offT:0,stuck:0,mistake:0,resetT:0,contact:0,wall:0,lastLapS:0,steerS:0,
@@ -296,6 +296,8 @@ export function step(dt,playerInput){
     const drsOk=c.thr>0.95&&c.brk<0.02&&Math.abs(c.steer)<0.014&&c.speed>33&&Math.abs(c.ayF)<3.5&&c.gear>0;
     c.drsT=drsOk?c.drsT+dt:0;c.drs=c.drsT>0.6;
     stepCar(c,e.inp,buildEnv(e),dt);
+    /* on the grid the brakes hold the car however hard it is revved */
+    if(!raceOn&&e.gridPose){c.x=e.gridPose[0];c.z=e.gridPose[1];c.h=e.gridPose[2];c.vx=c.vz=c.r=0;c.wheels.forEach(w=>w.w=0);}
     locate(e);
     if(e.resetT>0)e.resetT-=dt;
   }
