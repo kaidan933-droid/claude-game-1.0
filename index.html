@@ -11,12 +11,12 @@
 <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
-<canvas id="scene" aria-label="3D render of a scooter race on a hilly sunset circuit"></canvas>
+<canvas id="scene" aria-label="3D render of a motorcycle race on a hilly sunset circuit"></canvas>
 <div class="vig"></div>
 
 <div class="hud">
   <section class="tl panel" aria-label="Race status">
-    <div class="place"><b id="pos">1</b><sup id="sfx">st</sup><span>/ 5</span></div>
+    <div class="place"><b id="pos">1</b><sup id="sfx">st</sup><span id="fieldN">/ 10</span></div>
     <dl class="rows">
       <dt>Lap</dt><dd id="lap">1 of 5</dd>
       <dt>Time</dt><dd id="time">0:00.000</dd>
@@ -40,7 +40,7 @@
     <div class="gripRow"><div class="grip" aria-label="Tyre grip"><i id="gripBar"></i></div><span class="abs" id="abs">ABS</span></div>
     <div class="rev" id="rev"></div>
     <div class="spd">
-      <div class="gear"><small>Lean</small><b id="lean">0°</b></div>
+      <div class="gear"><small>Gear</small><b id="gear">1</b><small id="lean">0°</small></div>
       <div class="kmh"><b id="spd">0</b><small>km/h</small></div>
     </div>
   </section>
@@ -61,6 +61,29 @@
     </div>
     <div class="opts"><button class="pause" id="pause">Pause</button><button class="pause" id="mute">Sound: on</button><button class="pause" id="quality">Quality: High</button></div>
     <div class="hint">W/S or Up/Down throttle and brake, A/D or Left/Right steer, R reset, C camera, M mute, Space pause</div>
+  </div>
+</div>
+
+<div class="banner" id="banner" hidden></div>
+
+<div class="menu" id="menu">
+  <div class="panel card">
+    <h1>Apex Run</h1>
+    <p class="sub">400cc sport bikes · 10-rider races · you ride the RS 457</p>
+    <label class="field">Your name <input id="pname" maxlength="16" autocomplete="nickname" placeholder="Rider"></label>
+    <div class="menuBtns"><button class="again" id="soloBtn">Solo race</button><button class="pause" id="hostBtn">Host online race</button></div>
+    <div class="joinRow"><input id="roomCode" maxlength="5" placeholder="Room code" autocapitalize="characters" aria-label="Room code"><button class="pause" id="joinBtn">Join</button></div>
+    <p class="msg" id="menuMsg" role="status"></p>
+    <p class="fine">Online races connect browsers directly, with the host's browser running the race. Some school or work networks block this. Empty grid slots are filled with AI riders so there are always 10 on track.</p>
+  </div>
+</div>
+
+<div class="menu" id="lobby" hidden>
+  <div class="panel card">
+    <h2>Lobby</h2>
+    <div class="roomRow">Room <b id="roomShow"></b><button class="pause" id="copyLink">Copy invite link</button></div>
+    <ol class="slots" id="slots"></ol>
+    <div class="actions"><button class="again" id="startBtn">Start race</button><button class="pause" id="leaveBtn">Leave</button><span class="hint2" id="lobbyMsg" role="status"></span></div>
   </div>
 </div>
 

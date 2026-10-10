@@ -45,8 +45,8 @@ let AVGY=0;for(let i=0;i<N;i++)AVGY+=S[i].y;AVGY/=N;
 
 /* curvature + speed profile */
 const K=new Float32Array(N),V=new Float32Array(N);
-/* racing-line speed profile at Vespa pace: about 0.8 g in corners, 0.75 g on the brakes */
-const ALAT=7.9,VMAX=34.6,BRAKE=7.5,ACC=2.6,G=9.81;
+/* racing-line speed profile for 400-class sport bikes: about 1.08 g in corners, 1 g on the brakes */
+const ALAT=10.6,VMAX=51,BRAKE=9.8,ACC=4.5,G=9.81;
 for(let i=0;i<N;i++){
   const a=T[mod(i-5)],b=T[mod(i+5)];
   const cy=a.z*b.x-a.x*b.z,dot=a.x*b.x+a.z*b.z;

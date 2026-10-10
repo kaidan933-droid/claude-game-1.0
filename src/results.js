@@ -5,7 +5,12 @@ import {player} from './bikes.js';
 const el=document.getElementById('results');
 const ORD=n=>n+(['th','st','nd','rd'][n]||'th');
 let key='';
-export function showResults(){el.hidden=false;key='';updateResults();el.querySelector('button')?.focus();}
+export function showResults(){el.hidden=false;key='';updateResults();const b=el.querySelector('button');if(!b.hidden)b.focus();}
+/* label for the results button; null hides it (online clients wait for the host) */
+export function setResultsAction(label){
+  const b=el.querySelector('button'),h=el.querySelector('.hint2');
+  b.hidden=!label;if(label)b.textContent=label;h.textContent=label?'or press Enter':'Waiting for the host to start the next race…';
+}
 export function hideResults(){el.hidden=true;}
 export function updateResults(){
   if(el.hidden)return;

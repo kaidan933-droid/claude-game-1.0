@@ -3,32 +3,39 @@
 **Play online:** https://kaidan933-droid.github.io/claude-game-1.0/  
 Every push to `main` rebuilds and redeploys the site automatically (`.github/workflows/deploy.yml`).
 
-Scooter race concept in three.js (r128) built with Vite.
+Motorcycle race in three.js (r128) built with Vite: 10 riders on 400cc sport bikes. You ride an Aprilia RS 457 in Prismatic Dark (a look-alike livery, not official artwork).
 
     npm install
     npm run dev      # http://localhost:5173
     npm run build    # bundle in dist/, serve with `npm run preview`
 
-Race: lights count down on the gantry, then 5 laps; results show when you finish (`Enter` races again).
+**Solo:** you plus 9 AI riders (Pro, Strong, Club and Rookie skill levels).
 
-Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, `R` reset to track, `C` cycles cameras, `M` mutes, `Space` pauses. The Quality button switches High (bloom, speed blur) / Low.
+**Online:** one player clicks *Host online race* and shares the invite link (or the 5-letter room code); others click *Join*. Humans take grid slots from the back forward, and each one replaces an AI rider, so there are always 10 on track. Anyone joining mid-race spectates and gets a slot next round. If a player drops out, an AI rider takes over their bike; if the host leaves, everyone finishes against the AI. Connections are peer-to-peer through the host's browser (PeerJS); some school or work networks block this.
 
-Riding model (Vespa GTS 300 class):
-- about 127 km/h flat out, 0-100 km/h in about 11 s, 100-0 km/h in about 47 m
-- brake pressure builds the longer you hold the key; linked brakes with ABS (lamp on the dash)
-- steering asks for a lean angle: tap for a little, hold for more. The floorboard scrapes at 35 deg and nothing goes past 39 deg (about 0.8 g)
+Race: lights count down on the gantry, then 5 laps; results show when you finish.
+
+Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, `R` reset to track, `C` cycles cameras, `M` mutes, `Space` pauses (solo only). The Quality button switches High (bloom, speed blur) / Low.
+
+Riding model (RS 457 class, shared by every bike):
+- about 185 km/h flat out, 0-100 km/h in about 4.6 s, 6-speed automatic gearbox with a quickshifter, 100-0 km/h in about 43 m
+- brake pressure builds the longer you hold the key; dual-channel ABS (lamp on the dash)
+- steering asks for a lean angle: tap for a little, hold for more, up to about 48 deg on dry asphalt
 - tyre grip is a friction ellipse: braking or accelerating hard while leaned over slides the tyres and can lowside you. Curbs, grass and gravel have less grip
 
     src/main.js      game loop, pause
     src/core.js      renderer, scene, sky, lights, shared helpers
     src/track.js     circuit, speed profile, corners, barriers, stands
     src/scenery.js   terrain, mountains, clouds, trees
-    src/bikes.js     vespa-style scooter and rider models, AI racers (skill, passing, mistakes), contact
+    src/models.js    RS 457 and AI sport bike models, rider, pose
+    src/bikes.js     10-slot field, rider physics, AI racers (skill, passing, mistakes), contact, network state
+    src/net.js       PeerJS rooms
+    src/lobby.js     menu, lobby, online race flow
     src/cameras.js   chase / onboard / trackside / aerial
-    src/physics.js   engine, CVT, drag, brakes, tyre and lean constants
+    src/physics.js   engine power curve, gearbox, drag, brakes, tyre and lean constants
     src/post.js      bloom, speed blur, quality toggle
     src/effects.js   tyre marks, dust, sparks
     src/audio.js     synthesized engine, tyre, wind and crash sounds
-    src/hud.js       race panel, corner note, lean / revs / ABS, minimap
+    src/hud.js       race panel, corner note, gear / lean / revs / ABS, minimap
     src/race.js      countdown, lap timing, finish order
     src/results.js   results screen
