@@ -90,7 +90,7 @@ const pmrem=new THREE.PMREMGenerator(renderer);
   const sa=((Math.atan2(sunDir.z,sunDir.x)/(2*Math.PI))+0.5)*1024;
   for(const ox of [-1024,0,1024]){const gr=g.createRadialGradient(sa+ox,236,2,sa+ox,236,260);gr.addColorStop(0,'rgba(255,240,210,1)');gr.addColorStop(0.15,'rgba(255,200,140,.8)');gr.addColorStop(1,'rgba(255,170,110,0)');g.fillStyle=gr;g.fillRect(0,0,1024,256);}
   g.fillStyle='#1e2a1b';for(let x=0;x<1024;x+=4){const h=10+Math.sin(x*0.05)*6+Math.sin(x*0.013)*8+Math.random()*6;g.fillRect(x,256-h,4,h);}
-  const gnd=g.createLinearGradient(0,256,0,512);gnd.addColorStop(0,'#3a3e33');gnd.addColorStop(1,'#2a2c26');g.fillStyle=gnd;g.fillRect(0,256,1024,256);
+  const gnd=g.createLinearGradient(0,256,0,512);gnd.addColorStop(0,'#2e302e');gnd.addColorStop(1,'#1c1d1c');g.fillStyle=gnd;g.fillRect(0,256,1024,256);
   const t=new THREE.CanvasTexture(c);t.mapping=THREE.EquirectangularReflectionMapping;t.encoding=THREE.sRGBEncoding;
   scene.environment=pmrem.fromEquirectangular(t).texture;t.dispose();
 }

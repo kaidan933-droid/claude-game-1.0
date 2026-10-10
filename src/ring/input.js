@@ -6,7 +6,7 @@ import {limitSteer,shift} from './sim/world.js';
    With the steering assist on, lock is capped near the front tyres' peak slip angle (what a driver
    feels through the wheel); with hands off, the wheels self-align with the direction of travel. */
 const down=new Set();
-const MAP={KeyW:'thr',ArrowUp:'thr',KeyS:'brk',ArrowDown:'brk',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right'};
+const MAP={KeyW:'thr',KeyS:'brk',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right'};
 const handlers={};
 export function on(name,fn){(handlers[name]=handlers[name]||[]).push(fn);}
 const fire=n=>(handlers[n]||[]).forEach(f=>f());
@@ -15,22 +15,22 @@ window.addEventListener('keydown',e=>{
   if(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement)return;
   if(MAP[e.code]){e.preventDefault();down.add(MAP[e.code]);return;}
   if(e.repeat)return;
-  const k={KeyE:'up',ShiftLeft:'up',ShiftRight:'up',KeyQ:'down',ControlLeft:'down',ControlRight:'down',KeyR:'reset',KeyC:'camera',KeyB:'lookback',
+  const k={ArrowUp:'up',ArrowDown:'down',KeyE:'up',ShiftLeft:'up',ShiftRight:'up',KeyQ:'down',ControlLeft:'down',ControlRight:'down',KeyR:'reset',KeyC:'camera',KeyB:'lookback',
     KeyP:'pause',Escape:'pause',KeyT:'tc',KeyY:'abs',KeyG:'gearbox',KeyH:'assist',Enter:'enter',Space:'pause'}[e.code];
   if(k){if(k==='pause'&&e.target instanceof HTMLButtonElement&&e.code==='Space')return;e.preventDefault();if(k==='lookback')down.add('lookback');else fire(k);}
 });
 window.addEventListener('keyup',e=>{if(MAP[e.code])down.delete(MAP[e.code]);if(e.code==='KeyB')down.delete('lookback');});
 window.addEventListener('blur',()=>down.clear());
 
-/* touch: big zones on the screen (left / right steer, right-bottom throttle, left-bottom brake) */
+/* touch: on-screen pedals, steer and shift buttons (shown on touch devices) */
 const touches=new Map();
 function touchState(){const s={left:0,right:0,thr:0,brk:0};for(const t of touches.values())s[t]=1;return s;}
-function zone(x,y){const w=window.innerWidth,h=window.innerHeight;if(y>h*0.55)return x>w/2?'thr':'brk';return x<w/2?'left':'right';}
-window.addEventListener('touchstart',e=>{for(const t of e.changedTouches){if(t.target.closest&&t.target.closest('button,select,.menu,.results'))continue;touches.set(t.identifier,zone(t.clientX,t.clientY));}},{passive:true});
-window.addEventListener('touchmove',e=>{for(const t of e.changedTouches)if(touches.has(t.identifier))touches.set(t.identifier,zone(t.clientX,t.clientY));},{passive:true});
-window.addEventListener('touchend',e=>{for(const t of e.changedTouches)touches.delete(t.identifier);});
-window.addEventListener('touchcancel',e=>{for(const t of e.changedTouches)touches.delete(t.identifier);});
-
+document.querySelectorAll('[data-touch]').forEach(el=>{
+  const k=el.dataset.touch;
+  const start=e=>{e.preventDefault();if(k==='up'||k==='down'){fire(k);el.classList.add('on');return;}touches.set(e.pointerId+':'+k,k);el.classList.add('on');try{el.setPointerCapture(e.pointerId);}catch(_){}};
+  const end=e=>{touches.delete(e.pointerId+':'+k);el.classList.remove('on');};
+  el.addEventListener('pointerdown',start);el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);el.addEventListener('lostpointercapture',end);
+});
 export const opts={assist:true};
 try{opts.assist=localStorage.getItem('ring-assist')!=='0';}catch(e){}
 export function setAssist(b){opts.assist=b;try{localStorage.setItem('ring-assist',b?'1':'0');}catch(e){}}

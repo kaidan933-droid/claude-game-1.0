@@ -11,11 +11,12 @@ import {readInput,resetInput,on,lookBack,opts as inOpts,setAssist} from './input
 import {updateHud,drawMap,flash,resetGaps,trackGaps} from './hud.js';
 
 const $=id=>document.getElementById(id);
-const PAINTS=[['Shark Blue',0x2f6fb8],['Python Green',0x3fae3a],['Guards Red',0xc8202a],['Signal Yellow',0xf2c230],['GT Silver',0xa9adb2],['Arctic Grey',0x8d9196]];
+const PAINTS=[['Ice Grey',0x66737b],['Shark Blue',0x2f6fb8],['Python Green',0x3fae3a],['Guards Red',0xc8202a],['Signal Yellow',0xf2c230],['GT Silver',0xa9adb2],['Black',0x161618]];
 
 /* ---------------- settings ---------------- */
 const set={laps:2,diff:1,auto:1,tc:true,abs:true,assist:inOpts.assist,paint:0};
 try{Object.assign(set,JSON.parse(localStorage.getItem('ring-setup')||'{}'));}catch(e){}
+if(!(set.paint>=0&&set.paint<7))set.paint=0;
 const save=()=>{try{localStorage.setItem('ring-setup',JSON.stringify(set));}catch(e){}};
 function syncMenu(){
   document.querySelectorAll('.seg[data-opt]').forEach(seg=>seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.v===+set[seg.dataset.opt]))));
@@ -80,11 +81,13 @@ on('pause',()=>{if(state==='race'&&$('results').hidden)setPaused(!paused);});
 on('enter',()=>{if(state==='menu')newRace();else if(!$('results').hidden)newRace();});
 on('camera',cycle);
 on('reset',()=>{if(state==='race'&&!paused&&race.state!=='grid'){resetToTrack(player,0);resetInput();flash('Back on track',false,1.2);}});
-on('up',()=>{const c=player.car;if(c.gear<0){c.gear=1;return;}if(!c.autoShift||true)shift(c,c.gear+1);});
-on('down',()=>{const c=player.car;shift(c,c.gear-1);});
+/* manual shifting on the arrows (and E/Q, paddles); shifting while in auto switches to manual */
+function manual(){const c=player.car;if(c.autoShift){c.autoShift=false;set.auto=0;save();syncMenu();flash('Manual gearbox: up / down arrows',false,1.6);}}
+on('up',()=>{if(state!=='race')return;const c=player.car;manual();if(c.gear<0){c.gear=1;return;}shift(c,c.gear+1);});
+on('down',()=>{if(state!=='race')return;const c=player.car;manual();shift(c,c.gear-1);});
 on('tc',()=>{set.tc=!set.tc;player.car.tc=set.tc;save();syncMenu();flash('Traction control '+(set.tc?'on':'off'),false,1.2);});
 on('abs',()=>{set.abs=!set.abs;player.car.abs=set.abs;save();syncMenu();flash('ABS '+(set.abs?'on':'off'),false,1.2);});
-on('gearbox',()=>{set.auto=set.auto?0:1;player.car.autoShift=!!set.auto;save();syncMenu();flash(set.auto?'PDK automatic':'Manual: E / Q to shift',false,1.4);});
+on('gearbox',()=>{set.auto=set.auto?0:1;player.car.autoShift=!!set.auto;save();syncMenu();flash(set.auto?'PDK automatic':'Manual: up / down arrows to shift',false,1.4);});
 on('assist',()=>{set.assist=!set.assist;setAssist(set.assist);save();syncMenu();flash('Steering help '+(set.assist?'on':'off'),false,1.2);});
 race.onFinish=()=>{resultsT=2.5;const pos=standings().indexOf(player)+1;flash(pos===1?'Winner!':'Finished P'+pos,false,3);};
 

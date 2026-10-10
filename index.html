@@ -55,12 +55,18 @@
     <div class="msg" id="startMsg">Hold the throttle around 4000 rpm and wait for lights out</div>
   </div>
 
+  <div class="touch" aria-hidden="true">
+    <button class="tk tl2" data-touch="left">◀</button><button class="tk tr2" data-touch="right">▶</button>
+    <button class="tk brk" data-touch="brk">Brake</button><button class="tk thr" data-touch="thr">Gas</button>
+    <button class="tk up" data-touch="up">+</button><button class="tk dn" data-touch="down">−</button>
+  </div>
+
   <div class="bl">
     <div class="cams" role="group" aria-label="Camera">
       <button data-cam="chase" aria-pressed="true">Chase</button><button data-cam="near" aria-pressed="false">Close</button><button data-cam="bonnet" aria-pressed="false">Bonnet</button><button data-cam="cockpit" aria-pressed="false">Cockpit</button><button data-cam="tv" aria-pressed="false">TV</button><button data-cam="heli" aria-pressed="false">Heli</button>
     </div>
     <div class="opts"><button class="btn" id="pause">Pause</button><button class="btn" id="mute">Sound: on</button><button class="btn" id="quality">Quality: High</button></div>
-    <div class="hint">W/S throttle-brake, A/D steer, E/Q shift, R reset, C camera, B look back, T TC, Y ABS, G gearbox, H steering help, P pause</div>
+    <div class="hint">W throttle, S brake, A/D or ←/→ steer, ↑/↓ shift (manual), R reset, C camera, B look back, T TC, Y ABS, G gearbox, H steering help, P pause</div>
   </div>
 </div>
 
@@ -76,7 +82,7 @@
       <fieldset><legend>Assists</legend><div class="seg multi"><button data-tog="tc">TC</button><button data-tog="abs">ABS</button><button data-tog="assist">Steering help</button></div></fieldset>
       <fieldset class="wide"><legend>Paint</legend><div class="swatches" id="swatches"></div></fieldset>
     </div>
-    <div class="actions"><button class="go" id="go">Start race</button><span class="hint2">Enter to start. Gamepad works too (RT/LT, left stick, bumpers to shift).</span></div>
+    <div class="actions"><button class="go" id="go">Start race</button><span class="hint2">Enter to start. Manual gears: ↑ / ↓ arrows. Gamepad works too (RT/LT, left stick, bumpers to shift).</span></div>
     <details class="how"><summary>How the car behaves</summary>
       <ul>
         <li>525 PS flat-six, 7-speed PDK, 0-100 km/h in about 3.4 s, about 290 km/h flat out. DRS opens on its own when you are flat out on a straight.</li>
