@@ -1,6 +1,7 @@
 import {clamp,hexStr,fmt} from './core.js';
 import {S,SIDE,LEN,ds,mod,corners} from './track.js';
 import {riders,player} from './bikes.js';
+import {RPM_MAX} from './physics.js';
 import {race,standings} from './race.js';
 
 const minX=Math.min(...S.map(p=>p.x)),maxX=Math.max(...S.map(p=>p.x)),minZ=Math.min(...S.map(p=>p.z)),maxZ=Math.max(...S.map(p=>p.z));
@@ -31,8 +32,6 @@ const $=id=>document.getElementById(id);
 const revEl=$('rev'),SEG=14;
 for(let i=0;i<SEG;i++){const s=document.createElement('span');if(i>=8)s.classList.add('mid');if(i>=12)s.classList.add('red');revEl.appendChild(s);}
 const segs=[...revEl.children];
-const GEARS=[0,78,118,158,198,240,999];
-const gearFor=k=>{let gi=1;while(k>=GEARS[gi]&&gi<6)gi++;return gi;};
 const sfx=n=>['th','st','nd','rd'][n]||'th';
 const ARROWS={fast:'M20 44 C20 30 24 20 36 12',medium:'M18 44 L18 30 C18 20 24 15 36 15',tight:'M16 44 L16 24 C16 14 24 12 36 18',hairpin:'M13 44 L13 18 C13 3 35 3 35 18 L35 28'};
 let boardKey='',noteKey='';
@@ -48,12 +47,12 @@ function updateHud(){
   updateStart();
   const gu=player.gripUse||0;
   $('gripBar').style.width=Math.min(100,gu*80)+'%';
-  $('gripBar').parentElement.classList.toggle('slip',player.sliding);
+  $('gripBar').parentElement.classList.toggle('slip',player.sliding||gu>1);
+  $('abs').classList.toggle('on',!!player.abs);
   $('crash').classList.toggle('on',!!player.crash);
   const kmh=player.v*3.6;$('spd').textContent=Math.round(kmh);
-  const gi=gearFor(kmh);$('gear').textContent=gi;
-  const lo=GEARS[gi-1],hi=GEARS[gi]===999?300:GEARS[gi];
-  const rpm=clamp(0.42+0.58*(kmh-lo)/(hi-lo),0,1),lit=Math.round(rpm*SEG);
+  $('lean').textContent=Math.round(Math.abs(player.lean)*57.3)+'°';
+  const lit=Math.round(clamp((player.rpm-1800)/(RPM_MAX-1800),0,1)*SEG);
   segs.forEach((s,i)=>s.classList.toggle('on',i<lit));
   $('lap').textContent=Math.min(race.laps,player.lapCount+1)+' of '+race.laps;
   $('best').textContent=player.lapTimes.length?fmt(Math.min(...player.lapTimes)):'none yet';
@@ -73,7 +72,8 @@ function updateHud(){
       $('note').className='note panel '+pick.kind;
       $('cname').textContent='Turn '+pick.num+' of '+corners.length;
       $('ctype').textContent=pick.label;
-      $('cgear').textContent='Gear '+gearFor(pick.kmh)+', about '+Math.round(pick.kmh/5)*5+' km/h';
+      const ck=Math.round(pick.kmh/5)*5;
+      $('cgear').textContent=(!inside&&kmh>ck+8?'Brake to about ':'Take it at about ')+ck+' km/h';
       $('cdist').textContent=inside?'Now':meters;
       $('cunit').textContent=inside?'':'m';
       $('arrowP').setAttribute('d',ARROWS[pick.kind]);

@@ -45,7 +45,8 @@ let AVGY=0;for(let i=0;i<N;i++)AVGY+=S[i].y;AVGY/=N;
 
 /* curvature + speed profile */
 const K=new Float32Array(N),V=new Float32Array(N);
-const ALAT=14,VMAX=86,BRAKE=14,ACC=6,G=9.81;
+/* racing-line speed profile at Vespa pace: about 0.8 g in corners, 0.75 g on the brakes */
+const ALAT=7.9,VMAX=34.6,BRAKE=7.5,ACC=2.6,G=9.81;
 for(let i=0;i<N;i++){
   const a=T[mod(i-5)],b=T[mod(i+5)];
   const cy=a.z*b.x-a.x*b.z,dot=a.x*b.x+a.z*b.z;
@@ -130,10 +131,10 @@ const PIT0=-Math.round(36/ds),PIT1=Math.round(210/ds);
 const BAR=EDGE+16.3;
 const gravelMat=new THREE.MeshStandardMaterial({map:gravelTex,roughness:1});
 const rubberMat=new THREE.MeshStandardMaterial({map:rubberTex,transparent:true,depthWrite:false,roughness:0.7});
-const tirePos=[],tireZones=[];
+const tirePos=[],tireZones=[],gravelZones=[];
 corners.forEach(c=>{
   const out=-c.sg;
-  if(c.r<140){const a=EDGE+2.5,b=EDGE+15.5;strip(out>0?a:-b,out>0?b:-a,0.02,gravelMat,6,c.i0-12,c.i1+26);
+  if(c.r<140){const a=EDGE+2.5,b=EDGE+15.5;gravelZones.push({side:out,i0:c.i0-12,len:38+c.i1-c.i0});strip(out>0?a:-b,out>0?b:-a,0.02,gravelMat,6,c.i0-12,c.i1+26);
     wall(out*b,-0.6,0.02,gravelMat,6,0.15,c.i0-12,c.i1+26,false);}
   if(c.r<70){
     tireZones.push({side:out,i0:c.i0-6,len:c.i1+18-(c.i0-6)});
@@ -195,7 +196,7 @@ const startLights=[];
   bTex.wrapS=bTex.wrapT=THREE.ClampToEdgeWrapping;
   const bMat=new THREE.MeshStandardMaterial({map:bTex,roughness:0.6,emissive:0xffffff,emissiveMap:bTex,emissiveIntensity:0.25});
   [-1,1].forEach(sd=>{const pl=new THREE.Mesh(new THREE.PlaneGeometry(2*span-1,2),bMat);pl.rotation.y=sd*Math.PI/2;pl.position.set(sd*0.47,8.4,0);g.add(pl);});
-  for(let i=-2;i<=2;i++){const pod=new THREE.MeshStandardMaterial({color:0x220000,emissive:lin(0xff3020),emissiveIntensity:0});startLights.push(pod);
+  for(let i=-2;i<=2;i++){const pod=new THREE.MeshStandardMaterial({color:0x120a0b,roughness:0.3,emissive:lin(0xff3020),emissiveIntensity:0});startLights.push(pod);
     const l=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.2,14),pod);l.rotation.z=Math.PI/2;l.position.set(-0.55,7.2,i*1.2);g.add(l);}
 })();
 
@@ -241,4 +242,13 @@ function barrierAt(s,side){
   for(const z of tireZones)if(z.side===side&&mod(i-z.i0)<=z.len)return EDGE+14.6;
   return BAR-0.3;
 }
-export {startLights,barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};
+/* what the tyres are on at a given offset from the centre line */
+function surfaceAt(s,off){
+  const d=Math.abs(off);
+  if(d<=W)return 'asphalt';
+  if(d<=EDGE)return 'curb';
+  if(d>EDGE+2.5){const i=mod(Math.floor(s/ds)),side=Math.sign(off);
+    for(const z of gravelZones)if(z.side===side&&mod(i-z.i0)<=z.len)return 'gravel';}
+  return 'grass';
+}
+export {surfaceAt,startLights,barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};
