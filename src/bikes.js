@@ -238,6 +238,7 @@ const player=riders[0];
 const VTOP=88,ACCEL=13,BRAKE_DEC=24,WB_MAX=1.25;
 const A_CMD=13.5,A_LAT=15;                 // lateral accel a full steer asks for / the tyres can give (m/s2)
 const MU_ROUGH=0.45,SLIDE_MU=0.8;          // gravel and turf grip, grip left once sliding
+const INFINITE_GRIP=true;                  // tyres never slide and full steering lock is available at any speed
 const CRASH_TIME=2.2,CRASH_SPEED=4;
 function integrate(r,dt,sdot){
   r.off+=r.v*Math.sin(r.psi)*dt;
@@ -283,8 +284,8 @@ function stepPlayer(r,dt){
   if(rough)a-=12;
   /* tyre grip: what the steering asks for against what is left after braking or accelerating */
   const frac=Math.min(1,Math.max(aThr,aBrk)/BRAKE_DEC)*0.8;
-  const gripBase=A_LAT*(rough?MU_ROUGH:1)*Math.sqrt(1-frac*frac);
-  const wbCmd=r.steer*Math.min(WB_MAX,A_CMD/Math.max(r.v,1))*clamp(r.v/3,0,1);   // wanted yaw rate, left positive
+  const gripBase=INFINITE_GRIP?Infinity:A_LAT*(rough?MU_ROUGH:1)*Math.sqrt(1-frac*frac);
+  const wbCmd=r.steer*(INFINITE_GRIP?WB_MAX:Math.min(WB_MAX,A_CMD/Math.max(r.v,1)))*clamp(r.v/3,0,1);   // wanted yaw rate, left positive
   const aReq=Math.abs(r.v*wbCmd);
   if(!r.sliding&&aReq>gripBase)r.sliding=true;
   else if(r.sliding&&aReq<gripBase*0.7)r.sliding=false;
