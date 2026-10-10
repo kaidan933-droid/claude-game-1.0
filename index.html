@@ -3,75 +3,108 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Apex Run</title>
+<title>Green Hell GT3 RS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/src/style.css">
+<link rel="stylesheet" href="/src/ring/style.css">
 </head>
 <body>
-<canvas id="scene" aria-label="3D render of a scooter race on a hilly sunset circuit"></canvas>
-<div class="vig"></div>
+<canvas id="scene" aria-label="3D view of a GT3 RS race on a long forest circuit at sunset"></canvas>
 
-<div class="hud">
+<div class="hud" id="hud">
   <section class="tl panel" aria-label="Race status">
-    <div class="place"><b id="pos">1</b><sup id="sfx">st</sup><span>/ 5</span></div>
+    <div class="place"><b id="pos">-</b><span>/ 10</span></div>
     <dl class="rows">
-      <dt>Lap</dt><dd id="lap">1 of 5</dd>
+      <dt>Lap</dt><dd id="lap">1 / 2</dd>
       <dt>Time</dt><dd id="time">0:00.000</dd>
-      <dt>Best</dt><dd id="best">none yet</dd>
+      <dt>Last</dt><dd id="last">-</dd>
+      <dt>Best</dt><dd id="best">-</dd>
     </dl>
     <ol class="board" id="board"></ol>
   </section>
 
-  <section class="note panel" id="note" aria-label="Next corner">
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs><marker id="ah" viewBox="0 0 10 10" refX="4" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
-      <g id="arrowG"><path id="arrowP" d="" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ah)"/></g>
-    </svg>
-    <div class="cinfo"><span class="cname" id="cname">Turn 1</span><span class="ctype" id="ctype">Hairpin right</span><span class="cgear" id="cgear">Gear 2</span></div>
-    <div class="cdist"><b id="cdist">0</b><small id="cunit">m</small></div>
-  </section>
+  <div class="sector" id="sector" aria-live="polite"><small id="km">km 0.0</small><b id="secName">Start / Finish</b></div>
 
-  <div class="tr panel"><canvas id="map" width="320" height="320" aria-label="Track map"></canvas></div>
+  <div class="tr panel"><canvas id="map" width="360" height="300" aria-label="Track map"></canvas></div>
 
-  <section class="br panel" aria-label="Speed">
-    <div class="gripRow"><div class="grip" aria-label="Tyre grip"><i id="gripBar"></i></div><span class="abs" id="abs">ABS</span></div>
-    <div class="rev" id="rev"></div>
-    <div class="spd">
-      <div class="gear"><small>Lean</small><b id="lean">0°</b></div>
+  <section class="dash panel" aria-label="Car">
+    <div class="leds" id="leds"></div>
+    <div class="dmain">
+      <div class="gear"><b id="gear">N</b><small id="gearMode">Auto</small></div>
       <div class="kmh"><b id="spd">0</b><small>km/h</small></div>
+    </div>
+    <div class="drow">
+      <div class="lamps2"><span id="lTC">TC</span><span id="lABS">ABS</span><span id="lDRS">DRS</span></div>
+      <div class="pedals" aria-hidden="true"><i><b id="pThr"></b></i><i class="brk"><b id="pBrk"></b></i></div>
+    </div>
+    <div class="drow">
+      <div class="tyres" aria-label="Tyre temperature and grip use">
+        <div class="ty" id="ty0"><i></i><small>--</small></div><div class="ty" id="ty1"><i></i><small>--</small></div>
+        <div class="ty" id="ty2"><i></i><small>--</small></div><div class="ty" id="ty3"><i></i><small>--</small></div>
+      </div>
+      <canvas id="gball" width="120" height="120" aria-label="G meter"></canvas>
     </div>
   </section>
 
-  <div class="crash" id="crash" role="status">Crash</div>
+  <div class="flash" id="flash" role="status"></div>
 
   <div class="start" id="start" aria-live="polite">
     <div class="lamps" id="lamps"><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="msg" id="startMsg">Lights out and away we go</div>
+    <div class="msg" id="startMsg">Hold the throttle around 4000 rpm and wait for lights out</div>
   </div>
 
   <div class="bl">
     <div class="cams" role="group" aria-label="Camera">
-      <button data-cam="chase" aria-pressed="true">Chase</button>
-      <button data-cam="onboard" aria-pressed="false">Onboard</button>
-      <button data-cam="trackside" aria-pressed="false">Trackside</button>
-      <button data-cam="aerial" aria-pressed="false">Aerial</button>
+      <button data-cam="chase" aria-pressed="true">Chase</button><button data-cam="near" aria-pressed="false">Close</button><button data-cam="bonnet" aria-pressed="false">Bonnet</button><button data-cam="cockpit" aria-pressed="false">Cockpit</button><button data-cam="tv" aria-pressed="false">TV</button><button data-cam="heli" aria-pressed="false">Heli</button>
     </div>
-    <div class="opts"><button class="pause" id="pause">Pause</button><button class="pause" id="mute">Sound: on</button><button class="pause" id="quality">Quality: High</button></div>
-    <div class="hint">W/S or Up/Down throttle and brake, A/D or Left/Right steer, R reset, C camera, M mute, Space pause</div>
+    <div class="opts"><button class="btn" id="pause">Pause</button><button class="btn" id="mute">Sound: on</button><button class="btn" id="quality">Quality: High</button></div>
+    <div class="hint">W/S throttle-brake, A/D steer, E/Q shift, R reset, C camera, B look back, T TC, Y ABS, G gearbox, H steering help, P pause</div>
+  </div>
+</div>
+
+<div class="menu" id="menu" role="dialog" aria-label="Race setup">
+  <div class="card panel">
+    <p class="kicker">Nordschleife-inspired, 12.6 km, 10 cars</p>
+    <h1>Green Hell <span>GT3 RS</span></h1>
+    <p class="lede">Late afternoon in the Eifel. 73 corners of forest, crests and armco, the sun low over the Döttinger Höhe. Nine other GT3 RSs on the grid.</p>
+    <div class="grid">
+      <fieldset><legend>Laps</legend><div class="seg" data-opt="laps"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button></div></fieldset>
+      <fieldset><legend>Opponents</legend><div class="seg" data-opt="diff"><button data-v="0">Amateur</button><button data-v="1">Pro</button><button data-v="2">Alien</button></div></fieldset>
+      <fieldset><legend>Gearbox</legend><div class="seg" data-opt="auto"><button data-v="1">PDK auto</button><button data-v="0">Manual</button></div></fieldset>
+      <fieldset><legend>Assists</legend><div class="seg multi"><button data-tog="tc">TC</button><button data-tog="abs">ABS</button><button data-tog="assist">Steering help</button></div></fieldset>
+      <fieldset class="wide"><legend>Paint</legend><div class="swatches" id="swatches"></div></fieldset>
+    </div>
+    <div class="actions"><button class="go" id="go">Start race</button><span class="hint2">Enter to start. Gamepad works too (RT/LT, left stick, bumpers to shift).</span></div>
+    <details class="how"><summary>How the car behaves</summary>
+      <ul>
+        <li>525 PS flat-six, 7-speed PDK, 0-100 km/h in about 3.4 s, about 290 km/h flat out. DRS opens on its own when you are flat out on a straight.</li>
+        <li>Each tyre has its own load, slip and temperature. Braking or accelerating while cornering eats into lateral grip (friction ellipse); weight shifts under braking, throttle and cornering.</li>
+        <li>Cold tyres grip less; they come up to about 85-95 C after a few corners. Sliding overheats them.</li>
+        <li>Downforce adds grip at speed; crests like Flugplatz and Pflanzgarten unload the car, it can leave the ground. The Karussell is banked.</li>
+        <li>Lifting mid-corner shifts weight forward and the rear-engined car can rotate. Curbs grip a little less, grass and gravel much less.</li>
+      </ul>
+    </details>
+    <p class="other"><a href="./scooter.html">Play the original scooter race</a></p>
+  </div>
+</div>
+
+<div class="menu" id="pausemenu" hidden role="dialog" aria-label="Paused">
+  <div class="card panel small">
+    <h2>Paused</h2>
+    <div class="actions col"><button class="go" id="resume">Resume</button><button class="btn" id="restart">Restart race</button><button class="btn" id="tomenu">Race setup</button></div>
   </div>
 </div>
 
 <div class="results" id="results" hidden role="dialog" aria-label="Race results">
   <div class="panel card">
     <h2>Finished</h2>
-    <table><thead><tr><th>Pos</th><th>Rider</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody></tbody></table>
-    <div class="actions"><button class="again" id="again">Race again</button><span class="hint2">or press Enter</span></div>
+    <table><thead><tr><th>Pos</th><th>Driver</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody></tbody></table>
+    <div class="actions"><button class="go" id="again">Race again</button><button class="btn" id="setup2">Race setup</button><span class="hint2">or press Enter</span></div>
   </div>
 </div>
 
-<script type="module" src="/src/main.js"></script>
+<script type="module" src="/src/ring/main.js"></script>
 </body>
 </html>
