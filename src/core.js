@@ -18,13 +18,13 @@ renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 
 const scene=new THREE.Scene();
 const HORIZON=lin(0xf4ab7c).multiplyScalar(1.15);
-scene.fog=new THREE.Fog(HORIZON.clone(),220,1500);
-const camera=new THREE.PerspectiveCamera(62,1,0.05,6000);
+scene.fog=new THREE.Fog(HORIZON.clone(),260,2100);
+const camera=new THREE.PerspectiveCamera(62,1,0.05,8000);
 function resize(){const w=window.innerWidth,h=window.innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 window.addEventListener('resize',resize);resize();
 
 /* ---------------- sky ---------------- */
-const sunDir=new THREE.Vector3(-0.52,0.34,-0.78).normalize();
+const sunDir=new THREE.Vector3(-0.52,0.27,-0.78).normalize();   // low golden-hour sun, long shadows
 function makeSky(radius){
   const m=new THREE.Mesh(new THREE.SphereGeometry(radius,32,16),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,depthTest:false,fog:false,
@@ -51,7 +51,7 @@ scene.environment=pmrem.fromScene(envScene,0.04).texture;
 scene.add(new THREE.HemisphereLight(lin(0xffe2c8),lin(0x55623a),0.18));
 const sun=new THREE.DirectionalLight(lin(0xffcc9a),2.1);
 sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
-Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:800});   // follows the player
+Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:1,far:900});   // follows the player
 sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.02;
 scene.add(sun);scene.add(sun.target);
 

@@ -9,7 +9,20 @@ const roadTex=tex(512,512,(g,w,h)=>{g.fillStyle='#4b4a4f';g.fillRect(0,0,w,h);
   speckle(g,w,h,['#3f3e43','#55545a','#38373b','#626168','#45444a','#6d6b70'],90000,1.8);
   g.fillStyle='rgba(30,30,32,.18)';for(let i=0;i<14;i++){g.fillRect(rnd()*w,0,8+rnd()*30,h);}
   g.fillStyle='#ece8df';g.fillRect(4,0,8,h);g.fillRect(w-12,0,8,h);});
-const curbTex=tex(64,128,(g,w,h)=>{g.fillStyle='#c8262a';g.fillRect(0,0,w,h/2);g.fillStyle='#efebe3';g.fillRect(0,h/2,w,h/2);
+/* asphalt relief: fine aggregate plus larger undulations, turned into a tangent-space normal map */
+const roadNormal=tex(512,512,(g,w,h)=>{
+  const H=new Float32Array(w*h);for(let i=0;i<H.length;i++)H[i]=rnd();
+  for(let k=0;k<2;k++){const B=H.slice();for(let y=0;y<h;y++)for(let x=0;x<w;x++){let a=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)a+=B[((y+dy+h)%h)*w+(x+dx+w)%w];H[y*w+x]=a/9*0.7+B[y*w+x]*0.3;}}
+  const im=g.createImageData(w,h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const dx=(H[y*w+(x+1)%w]-H[y*w+(x-1+w)%w])*6,dy=(H[((y+1)%h)*w+x]-H[((y-1+h)%h)*w+x])*6,l=Math.hypot(dx,dy,1),o=(y*w+x)*4;
+    im.data[o]=(-dx/l*0.5+0.5)*255;im.data[o+1]=(-dy/l*0.5+0.5)*255;im.data[o+2]=(1/l*0.5+0.5)*255;im.data[o+3]=255;}
+  g.putImageData(im,0,0);},false);
+/* run-off paint: alternating green and red blocks */
+const runoffTex=tex(64,256,(g,w,h)=>{g.fillStyle='#2f7a45';g.fillRect(0,0,w,h);g.fillStyle='#b8352f';g.fillRect(0,h/2,w,h/2);
+  speckle(g,w,h,['rgba(0,0,0,.12)','rgba(255,255,255,.08)'],1400,1.6);});
+roadNormal.repeat.set(5,4);
+const curbTex=tex(128,256,(g,w,h)=>{g.fillStyle='#c8262a';g.fillRect(0,0,w,h/2);g.fillStyle='#efebe3';g.fillRect(0,h/2,w,h/2);
   const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'rgba(0,0,0,.28)');gr.addColorStop(.35,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.12)');g.fillStyle=gr;g.fillRect(0,0,w,h);
   speckle(g,w,h,['rgba(0,0,0,.15)','rgba(255,255,255,.1)'],600,1.5);});
 const turfTex=tex(128,128,(g,w,h)=>{g.fillStyle='#3d7346';g.fillRect(0,0,w,h);speckle(g,w,h,['#356a3e','#46804f','#2f5f37'],6000,1.6);});
@@ -29,11 +42,12 @@ const garageTex=tex(512,128,(g,w,h)=>{g.fillStyle='#c9c4bd';g.fillRect(0,0,w,h);
     g.fillStyle=['#c8262a','#203f91','#ffb43a','#17a3a5'][i];g.fillRect(i*128+12,12,104,14);}});
 
 /* ---------------- track ---------------- */
+/* fast, nearly flat circuit (~3.5 km): long main straight, big sweepers, a handful of medium
+   corners for braking zones and no hairpins. [x, z, height] */
 const ctrl=[
- [0,0,0],[150,0,0],[248,-4,1],[298,8,1.6],[318,40,2],[296,63,2.5],[250,56,3],
- [202,70,5],[166,104,8],[176,145,11],[146,180,13],[101,175,14],[88,191,14],[58,201,14.5],
- [10,215,15],[-34,196,9.5],[-50,160,5],[-92,150,4],[-150,176,4],[-210,150,3],[-230,90,2],
- [-200,40,1.5],[-140,46,1.2],[-110,30,1],[-80,-10,0.5],[-40,-12,0]];
+ [0,0,0],[320,0,0],[640,0,0.3],[850,60,0.6],[960,210,1],[980,360,1.3],[1030,500,1.6],[960,620,1.8],
+ [800,650,2],[600,610,2],[420,580,1.6],[240,620,1.2],[90,610,1],[-30,530,0.8],[-110,410,0.5],
+ [-200,300,0.3],[-320,240,0.2],[-380,120,0.1],[-280,10,0]];
 const curve=new THREE.CatmullRomCurve3(ctrl.map(p=>new THREE.Vector3(p[0],p[2],p[1])),true,'centripetal');
 const LEN=curve.getLength();
 const N=1000,ds=LEN/N;
@@ -117,7 +131,7 @@ function frameAt(s,off){
 }
 
 /* road surface with patchy repairs and rubber */
-const roadMat=new THREE.MeshStandardMaterial({map:roadTex,bumpMap:roadTex,bumpScale:0.015,roughness:0.88,vertexColors:true});
+const roadMat=new THREE.MeshStandardMaterial({map:roadTex,normalMap:roadNormal,normalScale:new THREE.Vector2(0.16,0.16),roughness:0.86,vertexColors:true});
 const patch=i=>0.9+0.08*Math.sin(i*0.031)+0.05*Math.sin(i*0.173+1.2)+(Math.sin(i*0.011)>0.85?-0.08:0);
 strip(-W,W,0.05,roadMat,16,0,N,patch);
 const curbMat=new THREE.MeshStandardMaterial({map:curbTex,roughness:0.6});
@@ -225,7 +239,7 @@ function grandstand(s,side,len,rows){
   crowd.count=heads.count=n;crowd.castShadow=true;g.add(crowd);g.add(heads);
 }
 grandstand(70,1,92,10);
-corners.filter(c=>c.kind==='hairpin').slice(0,2).forEach(c=>grandstand(mod(c.ip)*ds,-c.sg,48,7));
+[...corners].sort((a,b)=>a.r-b.r).slice(0,2).forEach(c=>grandstand(mod(c.ip)*ds,-c.sg,64,9));   // stands at the slowest corners
 (function(){
   const g=frameAt(85,-(EDGE+30));g.rotation.y+=Math.PI;keepClear.push([g.position.x,g.position.z,100]);
   const body=new THREE.Mesh(new THREE.BoxGeometry(150,9,16),std(0xd2ccc4,0.85));body.position.set(0,2.5,-8);body.castShadow=true;body.receiveShadow=true;g.add(body);
@@ -237,6 +251,64 @@ corners.filter(c=>c.kind==='hairpin').slice(0,2).forEach(c=>grandstand(mod(c.ip)
   const top=new THREE.Mesh(new THREE.BoxGeometry(150,3,10),std(0xd2ccc4,0.85));top.position.set(0,9,-7.2);top.castShadow=true;g.add(top);
 })();
 /* distance from the centre line to the first solid barrier on one side (+1 left, -1 right) */
+/* ---------------- trackside detail ---------------- */
+/* a strip whose centre follows a varying offset (used for the rubbered racing line) */
+function lineStrip(offFn,width,dy,mat,vLen){
+  const reps=Math.max(1,Math.round(LEN/vLen)),vs=LEN/reps,pos=[],uv=[],idx=[];
+  for(let i=0;i<=N;i++){const ii=mod(i),p=S[ii],sd=SIDE[ii],o=offFn(ii),v=i*ds/vs,y=p.y+dy;
+    pos.push(p.x+sd[0]*(o-width/2),y,p.z+sd[1]*(o-width/2),p.x+sd[0]*(o+width/2),y,p.z+sd[1]*(o+width/2));uv.push(0,v,1,v);
+    if(i<N){const k=2*i;idx.push(k,k+2,k+1,k+1,k+2,k+3);}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
+  const m=new THREE.Mesh(g,mat);m.receiveShadow=true;scene.add(m);return m;
+}
+/* rubber laid down along the racing line the bikes actually use */
+(function(){
+  const line=i=>{const kA=K[mod(i+Math.round(16/ds))];return Math.sign(kA)*Math.min(1,Math.abs(kA)*36)*(W-1.6);};
+  const mat=new THREE.MeshStandardMaterial({map:rubberTex,transparent:true,opacity:0.85,depthWrite:false,roughness:0.6,polygonOffset:true,polygonOffsetFactor:-1});
+  rubberTex.repeat.set(3,1);
+  lineStrip(line,2.2,0.056,mat,30);
+})();
+/* painted run-off on the outside of every real corner, and more ad boards there */
+const runoffMat=new THREE.MeshStandardMaterial({map:runoffTex,roughness:0.75});
+corners.forEach(c=>{
+  if(c.r>260)return;const out=-c.sg;
+  strip(out>0?EDGE:-EDGE-3.4,out>0?EDGE+3.4:-EDGE,0.035,runoffMat,3,c.i0-14,c.i1+20);
+  wall(out*(BAR-0.15),-0.4,1.1,adMat,24,1,c.i0-10,c.i1+10);
+});
+/* braking boards 300/200/100 m before corners that need real braking, on the outside */
+(function(){
+  const boardTex=[3,2,1].map(n=>tex(128,96,(g,w,h)=>{g.fillStyle='#f3efe7';g.fillRect(0,0,w,h);g.strokeStyle='#14141a';g.lineWidth=8;g.strokeRect(4,4,w-8,h-8);
+    g.fillStyle='#14141a';for(let k=0;k<n;k++){g.save();g.translate(w/2+(k-(n-1)/2)*26,h/2);g.transform(1,0,-0.45,1,0,0);g.fillRect(-7,-30,14,60);g.restore();}}));
+  const mats=boardTex.map(t=>new THREE.MeshStandardMaterial({map:t,roughness:0.6}));
+  const post=std(0x3a3640,0.5,0.6);
+  corners.forEach(c=>{
+    const vIn=V[mod(c.i0-Math.round(120/ds))],vMin=V[mod(c.ip)];
+    if(vIn-vMin<9)return;                            // flat-out bend, no boards
+    const out=-c.sg;
+    [300,200,100].forEach((d,k)=>{
+      const g=frameAt(mod(c.i0)*ds-d,out*(EDGE+4.2));
+      const pl=new THREE.Mesh(new THREE.PlaneGeometry(1.3,0.95),mats[k]);pl.rotation.y=-Math.PI/2;pl.position.y=1.35;pl.castShadow=true;g.add(pl);
+      const pp=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.3,6),post);pp.position.set(0.04,0.65,0);g.add(pp);
+    });
+  });
+})();
+/* marshal posts behind the barriers every ~250 m, alternating sides */
+(function(){
+  const white=std(0xf0ece4,0.8),roof=std(0xe8621c,0.6),pole=std(0x8a8d92,0.4,0.7),flag=new THREE.MeshStandardMaterial({color:lin(0xf2d21b),side:THREE.DoubleSide,roughness:0.8});
+  let side=1;
+  for(let sx=180;sx<LEN-60;sx+=250){
+    side=-side;const i=mod(Math.round(sx/ds));
+    if(side<0&&(i<=PIT1||i>=N+PIT0))continue;        // not in the pit lane
+    const g=frameAt(sx,side*(BAR+3.2));
+    if(!keepClear.every(k=>Math.hypot(g.position.x-k[0],g.position.z-k[1])>k[2])){scene.remove(g);continue;}
+    if(side>0)g.rotation.y+=Math.PI;
+    const hut=new THREE.Mesh(new THREE.BoxGeometry(1.8,2.2,1.6),white);hut.position.y=1.1;hut.castShadow=true;hut.receiveShadow=true;g.add(hut);
+    const rf=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.18,1.9),roof);rf.position.y=2.3;rf.castShadow=true;g.add(rf);
+    const pl=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,3.6,6),pole);pl.position.set(0.7,1.8,1.0);g.add(pl);
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.45),flag);fl.position.set(1.05,3.3,1.0);g.add(fl);
+  }
+})();
 function barrierAt(s,side){
   const i=mod(Math.floor(s/ds));
   for(const z of tireZones)if(z.side===side&&mod(i-z.i0)<=z.len)return EDGE+14.6;

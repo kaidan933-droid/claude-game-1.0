@@ -27,6 +27,20 @@ const speedBlur=new ShaderPass({
       gl_FragColor=c/8.0;}`
 });
 composer.addPass(speedBlur);
+/* colour grade (in linear light, before the sRGB pass): gentle filmic contrast, warm highlights /
+   cool shadows, a touch more saturation and a soft vignette */
+composer.addPass(new ShaderPass({
+  uniforms:{tDiffuse:{value:null}},
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  fragmentShader:`uniform sampler2D tDiffuse;varying vec2 vUv;
+    void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 x=c.rgb;
+      float l=dot(x,vec3(0.2126,0.7152,0.0722));
+      x=mix(vec3(l),x,1.07);                                   // saturation
+      x=x*(1.0+0.12*(x-0.2));                                  // contrast around mid-grey (linear)
+      x*=mix(vec3(0.97,0.99,1.04),vec3(1.04,1.0,0.95),smoothstep(0.05,0.6,l));   // cool shadows, warm highlights
+      vec2 d=vUv-0.5;x*=1.0-0.28*smoothstep(0.35,0.85,length(d*vec2(1.25,1.0)));  // vignette
+      gl_FragColor=vec4(max(x,0.0),c.a);}`
+}));
 composer.addPass(new ShaderPass(GammaCorrectionShader));
 
 let high=true;

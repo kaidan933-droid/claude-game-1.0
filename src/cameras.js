@@ -46,9 +46,9 @@ function updateCamera(dt){
     camPos.copy(tmp);
     const yawT=clamp(lerpArr(K,player.s+22)*22,-0.14,0.14);
     headYaw+=(yawT-headYaw)*(1-Math.exp(-dt*3));
-    look.copy(bFwd).applyAxisAngle(WUP,headYaw).multiplyScalar(Math.cos(0.3)).addScaledVector(bUp,-Math.sin(0.3));
+    look.copy(bFwd).applyAxisAngle(WUP,headYaw).multiplyScalar(Math.cos(0.17)).addScaledVector(bUp,-Math.sin(0.17));
     camLook.copy(camPos).addScaledVector(look,10);
-    camera.up.copy(WUP).lerp(bUp,0.7).normalize();fov=84;
+    camera.up.copy(WUP).lerp(bUp,0.9).normalize();fov=84;   // onboard: horizon tilts with the bike
   }else if(camMode==='trackside'){
     let best=spots[0],bd=Infinity;spots.forEach(s=>{const d=s.distanceToSquared(P);if(d<bd){bd=d;best=s;}});
     camPos.copy(best);look.copy(P);look.y+=0.8;

@@ -21,6 +21,20 @@ const ROSTER=[
   {name:'D. Kowalski',color:0xffd23a,accent:0x14141a,suit:0x2a2614,num:88,rimColor:0x16161a,skill:0.925,level:'Rookie',aggr:0.35,react:9,err:0.22,lineQ:0.78},
   {name:'P. Silva',  color:0x25b4e8,accent:0xf3efe7,suit:0x14283a,num:31,rimColor:0x16161a,skill:0.918,level:'Rookie',aggr:0.3, react:9, err:0.25,lineQ:0.75}
 ];
+/* bot difficulty: scales the roster's pace, mistakes, line and aggression. Easy leaves the best bot
+   about 9% off a perfect lap; Hard is the full roster */
+export const DIFFICULTY={
+  easy:  {pace:0.91, err:1.8,line:0.85,aggr:0.8},
+  medium:{pace:0.955,err:1.3,line:0.93,aggr:0.9},
+  hard:  {pace:1,    err:1,  line:1,   aggr:1}};
+let difficulty='easy';
+const botTune=ai=>{const d=DIFFICULTY[difficulty];
+  return {...ai,skill:ai.skill*d.pace,err:Math.min(0.6,ai.err*d.err),lineQ:ai.lineQ*d.line,aggr:ai.aggr*d.aggr};};
+export function setDifficulty(d){
+  if(!DIFFICULTY[d])return;difficulty=d;
+  riders.forEach(r=>{if(r.ctrl==='ai')Object.assign(r,botTune(r.ai));});
+}
+export const getDifficulty=()=>difficulty;
 const HUMAN_SUITS=[0x1c1b22,0x2a1a1c,0x1a2230,0x22261a,0x2b2230,0x1d2a2a,0x30261c,0x1c1c1c,0x262a33,0x331c24];
 const SLOTS=ROSTER.length;
 /* staggered two-wide grid behind the start line, pole first */
@@ -32,9 +46,9 @@ let localSlot=null;
 function setSlot(r,ctrl,name){
   const human=ctrl!=='ai'&&!(ctrl==='remote'&&!name);
   const look=human?{name,color:0x16151b,accent:0x0e0d12,suit:HUMAN_SUITS[r.slot],num:r.ai.num,rs457:true,level:'Rider'}
-                  :{...r.ai,rs457:false};
+                  :{...botTune(r.ai),rs457:false};
   const rebuild=!r.g||r.rs457!==look.rs457||(ctrl==='local')!==!!r.local||r.num!==look.num;
-  Object.assign(r,r.ai,look,{ctrl,human,local:ctrl==='local'});
+  Object.assign(r,botTune(r.ai),look,{ctrl,human,local:ctrl==='local'});
   if(rebuild){
     if(r.g)disposeBike(r.g);
     Object.assign(r,makeBike(r));
@@ -50,7 +64,7 @@ const setPlayer=r=>{player=r;};
 /* put a rider back on the grid, stopped, ready for a new race */
 function resetRider(r){
   Object.assign(r,{mistake:null,cKey:'',pass:null,s:r.grid.s,v:0,off:r.grid.lane,lane:r.grid.lane,lean:0,psi:0,steer:0,thr:0,brk:0,sliding:false,crash:null,gripUse:0,
-    auto:false,phi:0,slip:0,dive:0,rpm:IDLE,gear:1,shiftT:0,blip:0,abs:false,scrape:false,rough:false,surf:'asphalt',
+    auto:false,phi:0,phiCmd:0,wheelie:0,tuck:0,up:0,look:0,knee:false,slip:0,dive:0,rpm:IDLE,gear:1,shiftT:0,blip:0,abs:false,scrape:false,rough:false,surf:'asphalt',
     lapCount:0,lapTimes:[],lapStart:0,finishTime:null,buf:[]});
   if(r.ctrl==='remote')r.buf.push({t:performance.now(),st:packState(r)});
   stepRider(r,0);
@@ -88,7 +102,10 @@ function stepRemote(r,dt){
 
 /* local rider: speed, lean and line come from the rider's inputs */
 const STEER_RATE=1.3,STEER_RETURN=2.5;     // holding a key leans further; letting go stands the bike up
-const ROLL_RATE=2.2;                       // rad/s, how fast the bike can be flicked into a lean
+/* how fast the bike can be flicked into a lean: quick at low speed, heavy at high speed
+   (gyroscopic wheels), with a short countersteer lag before the roll starts */
+const rollRate=v=>clamp(2.9-v*0.034,1.2,2.6);
+const LAG=0.12;
 const CRASH_TIME=2.2,CRASH_SPEED=4;
 function integrate(r,dt,sdot){
   r.off+=r.v*Math.sin(r.psi)*dt;
@@ -99,11 +116,24 @@ function placePlayer(r,dt,leanT,leanK){
   r.g.position.set(p.x+(t.z/l)*r.off,p.y+0.05,p.z-(t.x/l)*r.off);
   r.g.rotation.y=Math.atan2(t.x,t.z)+r.psi;
   r.pitch+=(-Math.asin(clamp(t.y,-1,1))-r.pitch)*(1-Math.exp(-dt*8));
-  r.g.rotation.x=r.pitch+r.dive;
   r.lean+=(leanT-r.lean)*(1-Math.exp(-dt*leanK));
+  bodyAndPose(r,dt);
+}
+/* chassis pitch (fork dive / squat / wheelie pivoting on the rear tyre), the rider's body
+   language, knee-down detection and wheel spin; shared by every bike */
+function bodyAndPose(r,dt){
+  const ease=k=>1-Math.exp(-dt*k);
+  r.wheelie=r.wheelie||0;
+  r.g.rotation.x=r.pitch+r.dive-r.wheelie;
+  r.g.position.y+=Math.sin(r.wheelie)*0.67;                // keep the rear tyre on the ground
   r.g.rotation.z=r.lean;
+  const crashed=!!r.crash;
+  r.tuck=(r.tuck||0)+(((r.v>24&&r.brk<0.1&&Math.abs(r.lean)<0.3&&!crashed)?1:0)-(r.tuck||0))*ease(3);
+  r.up=(r.up||0)+((r.brk>0.3&&!crashed?1:0)-(r.up||0))*ease(6);
+  r.look=(r.look||0)+(clamp(lerpArr(K,r.s+18)*26,-0.55,0.55)-(r.look||0))*ease(4);   // +x is the left side
   const amt=clamp((Math.abs(r.lean)-0.2)/0.5,0,1),inSide=r.lean>0?-1:1;
-  poseRider(r.rig,amt,inSide,Math.max(-1,Math.min(1,r.lean)));
+  poseRider(r.rig,amt,inSide,Math.max(-1,Math.min(1,r.lean)),{tuck:r.tuck,up:r.up,look:r.look});
+  r.knee=Math.abs(r.lean)>0.73&&r.v>8&&!crashed;          // knee slider on the tarmac past ~42 deg
   r.wheels[0].rotation.x+=r.v*dt/WHEEL_F;r.wheels[1].rotation.x+=r.v*dt/WHEEL_R;
 }
 function stepCrash(r,dt){
@@ -129,14 +159,16 @@ function stepPlayer(r,dt){
   r.thr=clamp(r.thr+(c.throttle?dt/0.35:-dt/0.2),0,1);
   r.brk=clamp(r.brk+(c.brake?BRAKE_RISE:-BRAKE_FALL)*dt,0,1);
   const sIn=c.left-c.right;                        // +1 = left
-  if(sIn)r.steer=clamp(r.steer+sIn*STEER_RATE*dt*(r.steer*sIn<0?2.5:1),-1,1);
+  if(sIn)r.steer=clamp(r.steer+sIn*STEER_RATE*clamp(1.45-r.v*0.012,0.75,1.3)*dt*(r.steer*sIn<0?2.5:1),-1,1);   // steering gets heavier with speed
   else r.steer-=Math.sign(r.steer)*Math.min(Math.abs(r.steer),STEER_RETURN*dt);
   const surf=surfaceAt(r.s,r.off);
   let mu=MU[surf];
   /* lean (left positive): steering asks for an angle, the bike rolls toward it at a limited rate;
      at walking pace the lean the steering lock allows is small */
   const phiT=r.steer*Math.min(PHI_RIDER,Math.atan(r.v*r.v/(R_MIN*G)));
-  r.phi+=clamp((phiT-r.phi)*6,-ROLL_RATE,ROLL_RATE)*dt;
+  r.phiCmd=(r.phiCmd||0)+(phiT-(r.phiCmd||0))*(1-Math.exp(-dt/LAG));
+  const rr=rollRate(r.v);
+  r.phi+=clamp((r.phiCmd-r.phi)*6,-rr,rr)*dt;
   r.phi=clamp(r.phi,-PHI_MAX,PHI_MAX);
   r.scrape=Math.abs(r.phi)>PHI_SCRAPE&&r.v>3;
   if(r.scrape)mu*=0.9;                             // peg feelers on the ground lever the tyres off
@@ -179,6 +211,9 @@ function stepPlayer(r,dt){
   }
   /* weight transfer: the nose dives under braking and lifts on the throttle */
   r.dive+=(-0.035*aTyre/G-r.dive)*(1-Math.exp(-dt*6));
+  /* hard drive in the low gears lifts the front; anti-wheelie keeps it to about 8 degrees */
+  const wT=r.gear<=2&&aTyre>0.72*G?Math.min(0.14,(aTyre/G-0.72)*0.9):0;
+  r.wheelie+=(wT-r.wheelie)*(1-Math.exp(-dt*(wT>r.wheelie?3:6)));
   r.tailLight.emissiveIntensity=0.6+6*r.brk;
   placePlayer(r,dt,-r.phi,40);
 }
@@ -256,13 +291,10 @@ function stepRider(r,dt){
   r.psi*=Math.exp(-dt*3);                           // heading left over when the autopilot takes over
   r.g.rotation.y=Math.atan2(t.x,t.z)+r.psi;
   r.pitch+=(-Math.asin(clamp(t.y,-1,1))-r.pitch)*(1-Math.exp(-dt*8));
-  r.g.rotation.x=r.pitch+(braking?0.025*r.brk:-0.004);
+  r.dive+=((braking?0.03*r.brk:-0.006)-r.dive)*(1-Math.exp(-dt*6));r.wheelie=0;
   const leanT=-Math.sign(k)*Math.min(PHI_MAX,Math.atan(r.v*r.v*Math.abs(k)/G));
   r.lean+=(leanT-r.lean)*(1-Math.exp(-dt*4.5));
-  r.g.rotation.z=r.lean;
-  const amt=clamp((Math.abs(r.lean)-0.2)/0.5,0,1),inSide=r.lean>0?-1:1;
-  poseRider(r.rig,amt,inSide,r.lean);
-  r.wheels[0].rotation.x+=r.v*dt/WHEEL_F;r.wheels[1].rotation.x+=r.v*dt/WHEEL_R;
+  bodyAndPose(r,dt);
   r.tailLight.emissiveIntensity=0.6+6*r.brk;
 }
 /* bike-to-bike contact: push apart, the rider behind loses speed, a hard rear-end shunt crashes the player */
