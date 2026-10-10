@@ -1,5 +1,8 @@
 # Apex Run
 
+**Play online:** https://kaidan933-droid.github.io/claude-game-1.0/  
+Every push to `main` rebuilds and redeploys the site automatically (`.github/workflows/deploy.yml`).
+
 Scooter race concept in three.js (r128) built with Vite.
 
     npm install
