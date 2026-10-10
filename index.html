@@ -37,10 +37,10 @@
   <div class="tr panel"><canvas id="map" width="320" height="320" aria-label="Track map"></canvas></div>
 
   <section class="br panel" aria-label="Speed">
-    <div class="grip" aria-label="Tyre grip"><i id="gripBar"></i></div>
+    <div class="gripRow"><div class="grip" aria-label="Tyre grip"><i id="gripBar"></i></div><span class="abs" id="abs">ABS</span></div>
     <div class="rev" id="rev"></div>
     <div class="spd">
-      <div class="gear"><small>Gear</small><b id="gear">1</b></div>
+      <div class="gear"><small>Lean</small><b id="lean">0°</b></div>
       <div class="kmh"><b id="spd">0</b><small>km/h</small></div>
     </div>
   </section>
@@ -59,8 +59,8 @@
       <button data-cam="trackside" aria-pressed="false">Trackside</button>
       <button data-cam="aerial" aria-pressed="false">Aerial</button>
     </div>
-    <button class="pause" id="pause">Pause</button>
-    <div class="hint">W/S or Up/Down throttle and brake, A/D or Left/Right steer, R reset, C camera, Space pause</div>
+    <div class="opts"><button class="pause" id="pause">Pause</button><button class="pause" id="mute">Sound: on</button><button class="pause" id="quality">Quality: High</button></div>
+    <div class="hint">W/S or Up/Down throttle and brake, A/D or Left/Right steer, R reset, C camera, M mute, Space pause</div>
   </div>
 </div>
 

@@ -51,7 +51,7 @@ scene.environment=pmrem.fromScene(envScene,0.04).texture;
 scene.add(new THREE.HemisphereLight(lin(0xffe2c8),lin(0x55623a),0.18));
 const sun=new THREE.DirectionalLight(lin(0xffcc9a),2.1);
 sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
-Object.assign(sun.shadow.camera,{left:-60,right:60,top:60,bottom:-60,near:1,far:800});
+Object.assign(sun.shadow.camera,{left:-40,right:40,top:40,bottom:-40,near:1,far:800});   // follows the player
 sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.02;
 scene.add(sun);scene.add(sun.target);
 
