@@ -9,7 +9,9 @@ Motorcycle race in three.js (r128) built with Vite: 10 riders on 400cc sport bik
     npm run dev      # http://localhost:5173
     npm run build    # bundle in dist/, serve with `npm run preview`
 
-**Solo:** you plus 9 AI riders (Pro, Strong, Club and Rookie skill levels).
+**Solo:** you plus 9 AI riders (Pro, Strong, Club and Rookie skill levels). The menu's *Bots* picker sets Easy (default), Medium or Hard; online, the host's choice applies.
+
+**Track:** a fast, nearly flat 3.5 km circuit with a 790 m main straight, big sweepers and no hairpins.
 
 **Online:** one player clicks *Host online race* and shares the invite link (or the 5-letter room code); others click *Join*. Humans take grid slots from the back forward, and each one replaces an AI rider, so there are always 10 on track. Anyone joining mid-race spectates and gets a slot next round. If a player drops out, an AI rider takes over their bike; if the host leaves, everyone finishes against the AI. Connections are peer-to-peer through the host's browser (PeerJS); some school or work networks block this.
 
@@ -20,7 +22,8 @@ Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, 
 Riding model (RS 457 class, shared by every bike):
 - about 185 km/h flat out, 0-100 km/h in about 4.6 s, 6-speed automatic gearbox with a quickshifter, 100-0 km/h in about 43 m
 - brake pressure builds the longer you hold the key; dual-channel ABS (lamp on the dash)
-- steering asks for a lean angle: tap for a little, hold for more, up to about 48 deg on dry asphalt
+- steering asks for a lean angle: tap for a little, hold for more, up to about 48 deg on dry asphalt; it gets heavier with speed
+- wheelies on hard launches (anti-wheelie holds it to about 8 deg), fork dive under braking; the rider tucks on straights, sits up to brake, hangs off and touches a knee down at deep lean
 - tyre grip is a friction ellipse: braking or accelerating hard while leaned over slides the tyres and can lowside you. Curbs, grass and gravel have less grip
 
     src/main.js      game loop, pause

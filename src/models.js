@@ -39,9 +39,39 @@ function rod(parent,a,b,r1,r2,mat,seg){const m=new THREE.Mesh(new THREE.Cylinder
 function ball(parent,mat,p,sc,rot){const m=new THREE.Mesh(SPH,mat);m.position.copy(p);m.scale.set(sc[0],sc[1],sc[2]);if(rot)m.rotation.set(rot[0],rot[1],rot[2]);m.castShadow=true;parent.add(m);return m;}
 function box(parent,mat,p,s,rot){const m=new THREE.Mesh(new THREE.BoxGeometry(s[0],s[1],s[2]),mat);m.position.copy(p);if(rot)m.rotation.set(rot[0],rot[1],rot[2]);m.castShadow=true;parent.add(m);return m;}
 
+/* ---- surface detail textures (shared) ---- */
+/* tyre: lathe u runs round the wheel, v across the profile: ribbed sidewalls, slick shoulders,
+   a few sipes in the centre of the tread */
+const tyreTex=tex(512,64,(g,w,h)=>{
+  g.fillStyle='#2a2a2d';g.fillRect(0,0,w,h);
+  g.fillStyle='#1c1c1f';g.fillRect(0,h*0.24,w,h*0.52);                       // tread band
+  g.strokeStyle='rgba(255,255,255,.07)';g.lineWidth=1;
+  for(const v of [0.06,0.1,0.14,0.86,0.9,0.94]){g.beginPath();g.moveTo(0,v*h);g.lineTo(w,v*h);g.stroke();}
+  g.strokeStyle='#0c0c0e';g.lineWidth=2;
+  for(let x=0;x<w;x+=32){g.beginPath();g.moveTo(x,h*0.36);g.lineTo(x+14,h*0.46);g.stroke();g.beginPath();g.moveTo(x+16,h*0.64);g.lineTo(x+2,h*0.54);g.stroke();}
+});
+tyreTex.repeat.set(6,1);
+/* drilled, wave-edged brake disc as an alpha map (cylinder caps map radially) */
+const discAlpha=tex(256,256,(g,w,h)=>{
+  g.fillStyle='#000';g.fillRect(0,0,w,h);g.fillStyle='#fff';g.beginPath();
+  for(let k=0;k<=240;k++){const a=k/240*Math.PI*2,r=w*0.5*(0.965+0.035*Math.cos(a*12));k?g.lineTo(w/2+Math.cos(a)*r,h/2+Math.sin(a)*r):g.moveTo(w/2+Math.cos(a)*r,h/2+Math.sin(a)*r);}
+  g.fill();g.fillStyle='#000';g.beginPath();g.arc(w/2,h/2,w*0.29,0,Math.PI*2);g.fill();
+  for(let k=0;k<36;k++){const a=k/36*Math.PI*2,r=w*(k%2?0.36:0.42);g.beginPath();g.arc(w/2+Math.cos(a)*r,h/2+Math.sin(a)*r,w*0.013,0,Math.PI*2);g.fill();}
+},false);
+/* leathers: panel seams, double stitching and accordion stretch panels, multiplied by the suit colour */
+const leatherTex=tex(256,256,(g,w,h)=>{
+  g.fillStyle='#ececec';g.fillRect(0,0,w,h);
+  for(let i=0;i<2600;i++){g.fillStyle='rgba(0,0,0,'+(0.02+Math.random()*0.04)+')';g.fillRect(Math.random()*w,Math.random()*h,1.5,1.5);}
+  g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=2;
+  [[0,64,w,80],[0,170,w,150],[90,0,70,h],[190,0,205,h]].forEach(([a,b,c,d])=>{g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke();});
+  g.setLineDash([3,3]);g.strokeStyle='rgba(0,0,0,.28)';g.lineWidth=1;
+  [[0,70,w,86],[0,176,w,156],[96,0,76,h],[196,0,211,h]].forEach(([a,b,c,d])=>{g.beginPath();g.moveTo(a,b);g.lineTo(c,d);g.stroke();});
+  g.setLineDash([]);g.strokeStyle='rgba(0,0,0,.22)';g.lineWidth=2;
+  for(let y=100;y<140;y+=6){g.beginPath();g.moveTo(100,y);g.lineTo(180,y);g.stroke();}   // stretch panel
+});
 const BIKE_SHARED={
-  tire:new THREE.MeshStandardMaterial({color:lin(0x18181a),roughness:0.72,side:THREE.DoubleSide}),
-  disc:std(0xb9bdc2,0.32,1),carbon:new THREE.MeshPhysicalMaterial({color:lin(0x1e1f23),roughness:0.35,metalness:0.4,clearcoat:1,clearcoatRoughness:0.1}),
+  tire:new THREE.MeshStandardMaterial({color:0xffffff,map:tyreTex,bumpMap:tyreTex,bumpScale:0.004,roughness:0.78,side:THREE.DoubleSide}),
+  disc:std(0xb9bdc2,0.32,1,{alphaMap:discAlpha,alphaTest:0.5,side:THREE.DoubleSide}),chain:std(0x2c2c30,0.45,0.85),carbon:new THREE.MeshPhysicalMaterial({color:lin(0x1e1f23),roughness:0.35,metalness:0.4,clearcoat:1,clearcoatRoughness:0.1}),
   alu:std(0xc3c6cb,0.3,1),black:std(0x141417,0.45,0.3),gold:std(0xc79a3a,0.28,1),ti:std(0x8e8780,0.3,1),
   spring:std(0xe5b81c,0.4,0.6),rubber:std(0x111113,0.85),
   glass:new THREE.MeshPhysicalMaterial({color:lin(0x3b4652),roughness:0.03,metalness:0,transparent:true,opacity:0.42,clearcoat:1,side:THREE.DoubleSide,depthWrite:false}),
@@ -84,7 +114,8 @@ function makeWheel(hw,r,front,M){
   const carrierG=new THREE.CylinderGeometry(front?0.105:0.07,front?0.105:0.07,0.012,24);carrierG.rotateZ(Math.PI/2);
   (front?[-1,1]:[1]).forEach(sd=>{const d=new THREE.Mesh(discG,M.disc);d.position.x=sd*(hw+0.016);w.add(d);
     const c=new THREE.Mesh(carrierG,M.carrier);c.position.x=sd*(hw+0.016);w.add(c);});
-  if(!front){const spr=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.012,30),M.black);spr.rotation.z=Math.PI/2;spr.position.x=-(hw+0.018);w.add(spr);}
+  if(!front){const spr=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.012,30),M.chain);spr.rotation.z=Math.PI/2;spr.position.x=-(hw+0.018);w.add(spr);
+    for(let k=0;k<40;k++){const a=k/40*Math.PI*2,t=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.016,0.01),M.chain);t.position.set(-(hw+0.018),Math.cos(a)*0.103,Math.sin(a)*0.103);t.rotation.x=a;w.add(t);}}   // sprocket teeth
   return w;
 }
 
@@ -103,12 +134,16 @@ function makeBike(r){
   M.acc=new THREE.MeshPhysicalMaterial({color:ACC,metalness:0.15,roughness:0.3,clearcoat:1,clearcoatRoughness:0.05});
   M.rim=rs?std(0xc8202a,0.38,0.35):r.rim==='gold'?M.gold:std(r.rimColor||0x16161a,0.35,0.6);
   M.carrier=rs?std(0x1a1a1d,0.4,0.6):M.gold;
-  M.suit=new THREE.MeshPhysicalMaterial({color:lin(r.suit),roughness:0.5,clearcoat:0.35,clearcoatRoughness:0.4});
-  M.suit2=new THREE.MeshPhysicalMaterial({color:rs?RED:ACC,roughness:0.5,clearcoat:0.35,clearcoatRoughness:0.4});
+  M.suit=new THREE.MeshPhysicalMaterial({color:lin(r.suit),map:leatherTex,bumpMap:leatherTex,bumpScale:0.002,roughness:0.5,clearcoat:0.35,clearcoatRoughness:0.4});
+  M.suit2=new THREE.MeshPhysicalMaterial({color:rs?RED:ACC,map:leatherTex,bumpMap:leatherTex,bumpScale:0.002,roughness:0.5,clearcoat:0.35,clearcoatRoughness:0.4});
   M.tail=new THREE.MeshStandardMaterial({color:0x200000,emissive:lin(0xff2414),emissiveIntensity:0.6});
   if(rs){M.helmet=new THREE.MeshPhysicalMaterial({color:lin(0x121116),roughness:0.35,metalness:0.4,clearcoat:1,clearcoatRoughness:0.1});prismatic(M.helmet);
     M.glass=new THREE.MeshPhysicalMaterial({color:lin(0x1c1f26),roughness:0.03,transparent:true,opacity:0.7,clearcoat:1,side:THREE.DoubleSide,depthWrite:false});}
-  else M.helmet=M.paint;
+  else{                                                   // painted helmet with livery stripes
+    const ht=tex(128,64,(g,w,h)=>{g.fillStyle=hexStr(r.color);g.fillRect(0,0,w,h);g.fillStyle=hexStr(r.accent);g.fillRect(0,h*0.42,w,h*0.16);
+      g.fillStyle='#f3efe7';g.fillRect(0,h*0.38,w,h*0.04);g.fillRect(0,h*0.58,w,h*0.04);});
+    M.helmet=new THREE.MeshPhysicalMaterial({map:ht,roughness:0.3,clearcoat:1,clearcoatRoughness:0.08});
+  }
   const g=new THREE.Group();g.rotation.order='YXZ';
 
   /* wheels */
@@ -188,6 +223,10 @@ function makeBike(r){
   rod(g,V3(0,0.48,-0.28),V3(0,0.86,-0.18),0.026,0.026,rs?M.rim:M.spring,10);
   rod(g,V3(0,0.46,-0.28),V3(0,0.9,-0.17),0.012,0.012,M.alu,8);
   box(g,M.black,V3(0,0.5,0.0),[0.28,0.26,0.34]);                               // parallel-twin engine
+  {const x=-0.093,fz=-0.02,fy=0.42,rz=-0.67,ry=WHEEL_R;                          // chain and front sprocket
+    const fs=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.014,18),M.chain);fs.rotation.z=Math.PI/2;fs.position.set(x,fy,fz);g.add(fs);
+    rod(g,V3(x,fy+0.045,fz),V3(x,ry+0.1,rz),0.008,0.008,M.chain,6);
+    rod(g,V3(x,fy-0.045,fz),V3(x,ry-0.1,rz),0.008,0.008,M.chain,6);}
   if(rs){
     rod(g,V3(0.08,0.36,-0.04),V3(0.17,0.42,-0.36),0.035,0.035,M.ti,12);        // header
     rod(g,V3(0.17,0.42,-0.36),V3(0.21,0.56,-0.68),0.07,0.075,M.ti,20);         // slip-on silencer
@@ -253,11 +292,13 @@ function makeRider(g,M){
   poseRider(R,0,1,0);
   return R;
 }
-function poseRider(R,a,inSide,lean){
-  const J=R.j,P=R.parts,sh=inSide*0.16*a;
-  J.P.set(sh,1.03-0.035*a,-0.3);
-  J.N.set(sh*1.35,1.3-0.05*a,0.15);
-  J.H.set(sh*1.6,1.355-0.075*a,0.29);
+/* a: hang-off amount, inSide: which side, lean: bike roll; opt.tuck 0..1 (chin on the tank on
+   straights), opt.up 0..1 (sits up and slides back under braking), opt.look: head yaw into the turn */
+function poseRider(R,a,inSide,lean,opt){
+  const J=R.j,P=R.parts,sh=inSide*0.16*a,tk=opt?opt.tuck*(1-a):0,up=opt?opt.up:0;
+  J.P.set(sh,1.03-0.035*a+0.01*up,-0.3-0.05*up);
+  J.N.set(sh*1.35,1.3-0.05*a-0.06*tk+0.13*up,0.15+0.03*tk-0.07*up);
+  J.H.set(sh*1.6,1.355-0.075*a-0.075*tk+0.15*up,0.29+0.03*tk-0.07*up);
   [-1,1].forEach(sd=>{const s=sd<0?'L':'R',inside=sd===inSide;
     J['hip'+s].set(sh+sd*0.105,0.99-0.035*a,-0.28);
     if(inside)J['knee'+s].set(sd*(0.215+0.27*a),0.88-0.17*a,0.1-0.03*a);
@@ -282,7 +323,7 @@ function poseRider(R,a,inSide,lean){
   P.chest.quaternion.copy(P.torso.quaternion);P.chest.scale.set(0.17,len*0.32,0.12);
   P.hump.position.copy(J.N).addScaledVector(dir,-0.1).add(R.tmp2.set(0,dir.z*0.1,-dir.y*0.1));P.hump.quaternion.copy(P.torso.quaternion);
   setRod(P.neck,J.N,R.tmp2.copy(J.H).add(R.tmp.set(0,-0.08,-0.06)));
-  R.helmet.position.copy(J.H);R.helmet.rotation.set(-0.08,inSide*0.12*a,-lean*0.55);
+  R.helmet.position.copy(J.H);R.helmet.rotation.set(-0.08-0.1*tk+0.12*up,inSide*0.12*a+(opt?opt.look:0),-lean*0.55);
 }
 
 export {makeBike,disposeBike,poseRider,WHEEL_F,WHEEL_R};

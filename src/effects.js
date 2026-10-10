@@ -62,6 +62,13 @@ export function updateEffects(dt,riders){
       for(let k=0;k<n;k++)emit(dust,tmp.x+(Math.random()-0.5)*0.3,tmp.y+0.1,tmp.z+(Math.random()-0.5)*0.3,
         -fwd.x*r.v*0.15+(Math.random()-0.5)*1.5,0.8+Math.random()*1.6,-fwd.z*r.v*0.15+(Math.random()-0.5)*1.5,1+Math.random()*0.8,col);
     }
+    if(r.knee&&Math.random()<0.6){
+      /* knee slider on the inside of the lean */
+      const sd=g.rotation.z>0?-1:1;
+      tmp.copy(g.position).addScaledVector(fwd,0.05).addScaledVector(side,sd*0.5);
+      for(let k=0;k<2;k++)emit(sparks,tmp.x,tmp.y+0.03,tmp.z,
+        -fwd.x*r.v*0.6+(Math.random()-0.5)*1.5,0.4+Math.random()*1.2,-fwd.z*r.v*0.6+(Math.random()-0.5)*1.5,0.18+Math.random()*0.2,SPARK);
+    }
     if(r.scrape){
       /* floorboard edge on the inside of the lean */
       const sd=g.rotation.z>0?-1:1;

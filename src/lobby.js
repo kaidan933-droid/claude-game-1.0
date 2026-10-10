@@ -1,4 +1,4 @@
-import {riders,SLOTS,localSlot,setSlot,setLocalSlot,setPlayer,packState,pushRemoteState} from './bikes.js';
+import {riders,SLOTS,localSlot,setSlot,setLocalSlot,setPlayer,packState,pushRemoteState,setDifficulty,getDifficulty} from './bikes.js';
 import {race,resetRace,randomGoAt,standings} from './race.js';
 import {net,hostRoom,joinRoom,send,toHost,broadcast,leave,roomFromUrl} from './net.js';
 import {showResults,hideResults,setResultsAction} from './results.js';
@@ -15,6 +15,16 @@ const menu=$('menu'),lobby=$('lobby'),banner=$('banner');
 let myName='';
 try{myName=localStorage.getItem('apex-name')||'';}catch(e){}
 $('pname').value=myName;
+/* bot difficulty picker (the host's choice is what counts online, since the host runs the bots) */
+let diffLabel='';
+function pickDifficulty(d){
+  setDifficulty(d);try{localStorage.setItem('apex-difficulty',d);}catch(e){}
+  document.querySelectorAll('[data-diff]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.diff===d)));
+}
+document.querySelectorAll('[data-diff]').forEach(b=>b.addEventListener('click',()=>pickDifficulty(b.dataset.diff)));
+let savedDiff='easy';try{savedDiff=localStorage.getItem('apex-difficulty')||'easy';}catch(e){}
+pickDifficulty(savedDiff);
+const DIFF_NAME={easy:'Easy',medium:'Medium',hard:'Hard'};
 $('roomCode').value=roomFromUrl();
 const nameNow=()=>{myName=($('pname').value.trim()||'Rider').slice(0,16);try{localStorage.setItem('apex-name',myName);}catch(e){}return myName;};
 const say=(el,t)=>{$(el).textContent=t;};
@@ -41,7 +51,7 @@ function assignSlots(){
 }
 const slotList=()=>riders.map(r=>({name:r.name,human:r.human,level:r.level}));
 function sendLobby(){
-  for(const p of players)if(p.conn)send(p.conn,{t:'lobby',slots:slotList(),you:p.slot,code:net.code});
+  for(const p of players)if(p.conn)send(p.conn,{t:'lobby',slots:slotList(),you:p.slot,code:net.code,diff:getDifficulty()});
   renderLobby();
 }
 async function startHost(){
@@ -104,7 +114,7 @@ function applySlots(slots,you){
 function clientMessage(m){
   if(m.t==='full'){say('menuMsg','That lobby is full (10 riders).');leave();menu.hidden=false;lobby.hidden=true;return;}
   hostSeen=performance.now();
-  if(m.t==='lobby'){spectating=false;race.spectating=false;race.state='lobby';hideResults();applySlots(m.slots,m.you);lobby.hidden=false;showBanner('');renderLobby('Waiting for the host to start…');return;}
+  if(m.t==='lobby'){diffLabel=DIFF_NAME[m.diff]||'';spectating=false;race.spectating=false;race.state='lobby';hideResults();applySlots(m.slots,m.you);lobby.hidden=false;showBanner('');renderLobby('Waiting for the host to start…');return;}
   if(m.t==='start'){spectating=false;race.laps=m.laps||race.laps;applySlots(m.slots,m.you);lobby.hidden=true;hideResults();showBanner('');
     resetRace(m.goAt);clearEffects();snapCamera();return;}
   if(m.t==='spectate'){spectating=true;race.laps=m.laps||race.laps;applySlots(m.slots,null);lobby.hidden=true;
@@ -129,7 +139,8 @@ function renderLobby(msg){
     (r.human?r.name+' <small>RS 457</small>':r.name+' <small>AI · '+r.level+'</small>')+'</li>').join('');
   $('startBtn').hidden=!host;
   const humans=riders.filter(r=>r.human).length;
-  say('lobbyMsg',msg||(host?humans+' rider'+(humans>1?'s':'')+' + '+(SLOTS-humans)+' AI · share the invite link':''));
+  const d=host?DIFF_NAME[getDifficulty()]:diffLabel;
+  say('lobbyMsg',(msg||(host?humans+' rider'+(humans>1?'s':'')+' + '+(SLOTS-humans)+' AI · share the invite link':''))+(d?' · bots: '+d:''));
 }
 $('copyLink').addEventListener('click',()=>{
   const url=location.origin+location.pathname+'?room='+net.code;
