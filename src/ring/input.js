@@ -70,20 +70,23 @@ export function readInput(e,dt){
   const lock=SPEC.steerLock;
   let target;
   if(P&&usingPad){
-    target=P.steer*lock*(1/(1+v/22));
-    steer+=(target-steer)*Math.min(1,dt*20);
+    /* softer centre on the stick and much less lock at speed */
+    const st=Math.sign(P.steer)*Math.pow(Math.abs(P.steer),1.6);
+    target=st*lock*(1/(1+v/14));
+    steer+=(target-steer)*Math.min(1,dt*9);
   }else{
     /* keyboard: the input itself ramps, faster back to centre */
-    const rate=steerKey===0?6:(Math.sign(steerKey)!==Math.sign(steerIn)&&steerIn!==0?7:2.4+1.6/(1+v/12));
+    /* keys build steering gradually (about half a second for full input), and less so at speed */
+    const rate=steerKey===0?4:(Math.sign(steerKey)!==Math.sign(steerIn)&&steerIn!==0?5:1.1+1.0/(1+v/15));
     steerIn+=Math.max(-dt*rate,Math.min(dt*rate,steerKey-steerIn));
     const align=v>5?Math.atan2(c.v+SPEC.a*c.r,Math.max(u,1)):0;
-    const span=lock/(1+v*v/700);
+    const span=lock/(1+v*v/420);
     target=steerIn*span+(1-Math.abs(steerIn))*align*0.9;
-    const sr=3.2/(1+v/30);
+    const sr=2.0/(1+v/25);
     steer+=Math.max(-dt*sr,Math.min(dt*sr,target-steer));
   }
   let out=steer;
-  if(opts.assist)out=limitSteer(c,out,1.25);
+  if(opts.assist)out=limitSteer(c,out,1.05);
   out=Math.max(-lock,Math.min(lock,out));
   return {thr:outThr,brk:outBrk,steer:out};
 }

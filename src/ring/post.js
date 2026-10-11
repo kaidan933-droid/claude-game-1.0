@@ -54,10 +54,10 @@ const FinalShader={
     vec3 warm=vec3(1.0,0.8,0.56);
     float s=sunVis*sunOn;
     vec2 d=(uv-sunUV)*vec2(aspect,1.0);float r=length(d);
-    vec3 g=warm*(exp(-r*14.0)*2.2+exp(-r*4.0)*0.42+exp(-r*1.5)*0.12);
+    vec3 g=warm*(exp(-r*16.0)*1.8+exp(-r*5.0)*0.25+exp(-r*2.0)*0.05);
     float an=atan(d.y,d.x);
     float star=pow(abs(cos(an*3.0+0.35)),90.0)+0.55*pow(abs(cos(an*4.0+1.2)),140.0)+0.4*pow(abs(cos(an*7.0+0.2)),200.0);
-    g+=warm*star*exp(-r*3.4)*1.2*(0.85+0.15*sin(time*7.0));
+    g+=warm*star*exp(-r*3.6)*0.55*(0.85+0.15*sin(time*7.0));
     g+=vec3(0.85,0.75,0.65)*exp(-abs(d.y)*110.0)*exp(-abs(d.x)*1.8)*0.3;
     /* ghosts mirrored through the centre, coloured by the lens coatings */
     vec2 ax=vec2(0.5)-sunUV;
@@ -70,17 +70,17 @@ const FinalShader={
     gh+=vec3(0.5,0.7,1.0)*ghost(uv,sunUV-ax*0.35,0.018,0.5)*0.25;
     /* ghosts are strongest when the sun is near the centre of the frame */
     gh*=smoothstep(0.85,0.1,length(ax));
-    col+=(g+gh)*s*1.3;
+    col+=(g+gh)*s*0.6;
     /* windscreen grime catches the light */
     if(cockpit>0.5){
       float dirt=texture2D(tDirt,uv).r;
-      col+=warm*dirt*s*(exp(-r*1.3)*4.0+0.35)*1.2;
+      col+=warm*dirt*s*(exp(-r*1.3)*4.0+0.35)*0.5;
       col+=warm*dirt*veil*0.2;
     }
     /* veiling glare: stray light lifts the blacks and washes out colour */
     float v=veil;
     float lum=dot(col,vec3(0.2126,0.7152,0.0722));
-    col=mix(col,vec3(lum),v*0.25)+warm*v*0.15;
+    col=mix(col,vec3(lum),v*0.18)+warm*v*0.08;
     col*=exposure;
     col=aces(col);
     /* vignette and a little grain */
@@ -95,7 +95,7 @@ function build(){
   if(composer){composer.renderTarget1.dispose();composer.renderTarget2.dispose();}
   composer=new EffectComposer(renderer,makeRT());
   composer.addPass(new RenderPass(scene,camera));
-  bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()),0.55,0.6,1.2);
+  bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()),0.4,0.55,1.4);
   bloom.enabled=q>=1;
   composer.addPass(bloom);
   final=final||new ShaderPass(FinalShader);
@@ -136,11 +136,11 @@ export function render(dt,o){
   U.sunUV.value.set(tmp.x*0.5+0.5,tmp.y*0.5+0.5);
   U.sunVis.value=visS;U.sunOn.value=on;
   /* stray light even with the sun a little out of frame */
-  const vTarget=visS*Math.pow(Math.max(0,facing),10)*0.9;
+  const vTarget=visS*Math.pow(Math.max(0,facing),10)*0.5;
   veilS+=(vTarget-veilS)*Math.min(1,dt*4);
   U.veil.value=veilS;
   /* eye / camera adapts: stops down when looking into the sun */
-  const target=1.05*(1-0.32*veilS*1.4)-(o.cockpit?0.05:0);
+  const target=1.05*(1-0.2*veilS*1.4)-(o.cockpit?0.05:0);
   expo+=(target-expo)*Math.min(1,dt*1.6);
   U.exposure.value=expo;
   U.cockpit.value=o.cockpit?1:0;

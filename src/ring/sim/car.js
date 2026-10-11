@@ -30,14 +30,14 @@ export const SPEC={
   torque:[[0,240],[1000,250],[2000,330],[3000,385],[4000,415],[5000,440],[6000,460],[6300,465],[7000,461],[7500,455],[8000,446],[8500,434],[9000,405],[9300,350]],
   cdA:0.98,clA:2.25,aeroFront:0.43,     // 860 kg downforce at 285 km/h
   brakeF:3500,brakeR:1950,              // Nm per wheel at full pedal
-  roll:0.64,              // share of lateral load transfer taken by the front axle
+  roll:0.67,              // share of lateral load transfer taken by the front axle (more = safer understeer)
   steerLock:0.52,         // rad at the road wheels
   /* tyres: Michelin Cup 2 R class */
-  mu:1.45,fz0:3800,loadSens:0.12,
+  mu:1.62,fz0:3800,loadSens:0.1,
   slipPeak:0.11,
-  alphaPeakF:0.12,alphaPeakR:0.095,     // peak slip angle: 6.9 deg on the 275 fronts, 5.4 deg on the stiffer 335 rears
-  muRear:1.08,                          // the wider rear tyre keeps more grip per kilo of load
-  mfC:1.45,
+  alphaPeakF:0.12,alphaPeakR:0.088,     // peak slip angle: 6.9 deg on the 275 fronts, 5.4 deg on the stiffer 335 rears
+  muRear:1.34,                          // the wider rear tyre keeps more grip per kilo of load, so the rear lets go last
+  mfC:1.3,                              // gentle fall-off past the peak: slides build progressively
   crr:0.012,
   lsdPre:60,lsdRamp:0.35,lsdK:220
 };
@@ -224,6 +224,9 @@ export function stepCar(c,inp,env,dt){
     w.brakeTemp+=dt*(bt*Math.abs(wn)*0.0009-(0.004+0.0009*spd)*(w.brakeTemp-30));
   }
   c.absActive=absAny;
+  /* stability control (with TC on): back off the power when the car starts to slide sideways */
+  const beta=spd>8?Math.abs(Math.atan2(v,Math.max(u,1))):0;
+  if(c.tc&&beta>0.09)tcSlip=Math.max(tcSlip,1+beta*10);
   /* traction control: cut torque while the rears spin up */
   if(c.tc&&tcSlip>0){c.tcCut=Math.max(0.05,c.tcCut-dt*14);c.tcActive=1;}
   else{c.tcCut=Math.min(1,c.tcCut+dt*(c.tc?4:20));c.tcActive=c.tcCut<0.98&&c.tc?1:0;}
