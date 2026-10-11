@@ -175,7 +175,7 @@ corners.forEach(c=>{
 /* barriers: armco + catch fence, ad boards and pit wall on the straight */
 const armcoMat=new THREE.MeshStandardMaterial({map:armcoTex,metalness:0.75,roughness:0.35,side:THREE.DoubleSide});
 const fenceMat=new THREE.MeshStandardMaterial({map:fenceTex,alphaTest:0.35,transparent:false,side:THREE.DoubleSide,metalness:0.5,roughness:0.5});
-fenceTex.encoding=THREE.LinearEncoding;
+fenceTex.colorSpace=THREE.NoColorSpace;
 const adMat=new THREE.MeshStandardMaterial({map:adTex,roughness:0.55,side:THREE.DoubleSide});
 const concreteMat=std(0xbdb6ad,0.92);
 wall(BAR,-0.6,0.8,armcoMat,8,1);
@@ -323,4 +323,4 @@ function surfaceAt(s,off){
     for(const z of gravelZones)if(z.side===side&&mod(i-z.i0)<=z.len)return 'gravel';}
   return 'grass';
 }
-export {surfaceAt,startLights,barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};
+export {roadMat,gravelMat,concreteMat,surfaceAt,startLights,barrierAt,grassTex,curve,LEN,N,ds,S,T,SIDE,W,CURB,EDGE,mod,AVGY,K,V,VMAX,G,corners,lerpArr,keepClear};

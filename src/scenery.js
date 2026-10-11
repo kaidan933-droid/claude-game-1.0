@@ -19,6 +19,7 @@ function groundH(x,z,n){
 let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
 S.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z);});
 const CX=(minX+maxX)/2,CZ=(minZ+maxZ)/2;
+let groundMat=null,hills=null;
 (function(){
   const TS=4600,SEG=380;
   const geo=new THREE.PlaneGeometry(TS,TS,SEG,SEG);geo.rotateX(-Math.PI/2);geo.translate(CX,0,CZ);
@@ -33,7 +34,8 @@ const CX=(minX+maxX)/2,CZ=(minZ+maxZ)/2;
     col[i*3]=(s+dry*0.22)*(mown?stripe:1);col[i*3+1]=(s+dry*0.08)*(mown?stripe:1);col[i*3+2]=(s-dry*0.05)*(mown?stripe:1);
   }
   geo.setAttribute('color',new THREE.BufferAttribute(col,3));geo.computeVertexNormals();
-  const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({map:grassTex,vertexColors:true,roughness:0.97}));
+  groundMat=new THREE.MeshStandardMaterial({map:grassTex,vertexColors:true,roughness:0.97});
+  const m=new THREE.Mesh(geo,groundMat);
   m.receiveShadow=true;scene.add(m);
 })();
 
@@ -55,7 +57,7 @@ const CX=(minX+maxX)/2,CZ=(minZ+maxZ)/2;
   for(let j=0;j<RR;j++)for(let i=0;i<RS;i++){const a=j*RS+i,b=j*RS+(i+1)%RS,cc=a+RS,d=b+RS;idx.push(a,b,cc,b,d,cc);}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();
-  scene.add(new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,fog:false})));
+  hills=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,fog:false}));scene.add(hills);
 })();
 
 /* clouds */
@@ -118,4 +120,14 @@ const CX=(minX+maxX)/2,CZ=(minZ+maxZ)/2;
   trunks.count=nt;pl.count=pt.count=np;b1.count=b2.count=nb;cy.count=nc;bush.count=nbu;
   [trunks,pl,pt,b1,b2,cy,bush].forEach(m=>{m.castShadow=true;m.receiveShadow=true;scene.add(m);});
 })();
-export {nearest,groundH,FLAT};
+/* random clear spots between minD and maxD metres from the track (for HD tree models) */
+function treeSpots(n,minD,maxD){
+  const out=[];let tries=0;
+  const spanX=(maxX-minX)/2+maxD,spanZ=(maxZ-minZ)/2+maxD;
+  while(out.length<n&&tries<n*40){tries++;
+    const x=CX-spanX+Math.random()*spanX*2,z=CZ-spanZ+Math.random()*spanZ*2,nr=nearest(x,z);
+    if(nr.d<minD||nr.d>maxD||!keepClear.every(k=>Math.hypot(x-k[0],z-k[1])>k[2]))continue;
+    out.push([x,groundH(x,z,nr)-0.15,z]);}
+  return out;
+}
+export {nearest,groundH,FLAT,groundMat,hills,treeSpots};

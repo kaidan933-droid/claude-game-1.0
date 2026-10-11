@@ -40,7 +40,7 @@ function updateCamera(dt){
     /* rider's eyes, tucked in behind the screen, looking a little down over the dash; the head counter-leans
        a little, nods with brake dive and turns toward the corner ahead */
     bFwd.set(0,0,1).applyQuaternion(player.g.quaternion);bUp.set(0,1,0).applyQuaternion(player.g.quaternion);
-    player.helmet.getWorldPosition(tmp);tmp.addScaledVector(bFwd,0.06).addScaledVector(bUp,0.03);
+    player.helmet.getWorldPosition(tmp);tmp.addScaledVector(bFwd,0.04).addScaledVector(bUp,0.23);   // sitting-up eye height, over the screen
     const vib=0.0025*sp*sp+0.0008*sp;shakeT+=dt;
     tmp.addScaledVector(bUp,Math.sin(shakeT*37)*vib+Math.sin(shakeT*11.3)*vib*0.6);
     camPos.copy(tmp);

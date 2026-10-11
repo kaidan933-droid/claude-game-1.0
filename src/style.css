@@ -157,3 +157,4 @@ button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .diff button{font:inherit;font-size:14px;font-weight:600;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--edge);padding:6px 14px;cursor:pointer}
 .diff button+button{border-left:none}
 .diff button[aria-pressed="true"]{background:var(--amber);color:#26150a;border-color:var(--amber)}
+.hdRow{display:flex;align-items:center;gap:10px;margin:10px 0 0}

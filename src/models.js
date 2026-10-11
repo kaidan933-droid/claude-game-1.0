@@ -69,6 +69,27 @@ const leatherTex=tex(256,256,(g,w,h)=>{
   g.setLineDash([]);g.strokeStyle='rgba(0,0,0,.22)';g.lineWidth=2;
   for(let y=100;y<140;y+=6){g.beginPath();g.moveTo(100,y);g.lineTo(180,y);g.stroke();}   // stretch panel
 });
+/* paint orange peel for the clearcoat: a fine noise normal map */
+const peelTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),im=g.createImageData(128,128);
+  for(let i=0;i<128*128;i++){const a=Math.random()*Math.PI*2,k=0.18*Math.random();im.data[i*4]=128+Math.cos(a)*k*127;im.data[i*4+1]=128+Math.sin(a)*k*127;im.data[i*4+2]=255;im.data[i*4+3]=255;}
+  g.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(6,6);return t;})();
+/* unit-height limb with a muscle bulge (scaled along y to the bone length by setRod) */
+function limbGeo(r1,r2,bulge){
+  const pts=[];for(let k=0;k<=12;k++){const t=k/12,r=(r1+(r2-r1)*t)*(1+bulge*Math.sin(Math.PI*t));pts.push(new THREE.Vector2(Math.max(r,0.001),t-0.5));}
+  return new THREE.LatheGeometry(pts,24);
+}
+/* full-face helmet shell: lathe profile, stretched front to back */
+const HELMET_GEO=(()=>{const pr=[[0,0.158],[0.06,0.154],[0.105,0.135],[0.138,0.095],[0.153,0.04],[0.152,-0.02],[0.142,-0.075],[0.128,-0.115],[0.118,-0.13]];
+  const g=new THREE.LatheGeometry(pr.map(([r,y])=>new THREE.Vector2(r,y)).reverse(),40);g.scale(1,1,1.12);return g;})();
+/* HD material textures from assets.js (Poly Haven), applied to every rider and frame */
+const suitMats=new Set();let bikeTex=null;
+function applySuit(m){if(!bikeTex||!bikeTex.leather)return;const L=bikeTex.leather;
+  if(L.normal){m.normalMap=L.normal;L.normal.repeat.set(3,3);m.normalScale=new THREE.Vector2(0.6,0.6);}
+  if(L.rough){m.roughnessMap=L.rough;L.rough.repeat.set(3,3);}m.needsUpdate=true;}
+export function setBikeTextures(t){
+  bikeTex=t;suitMats.forEach(applySuit);
+  const Mt=t.metal;if(Mt){const a=BIKE_SHARED.alu;if(Mt.normal){a.normalMap=Mt.normal;Mt.normal.repeat.set(2,2);}if(Mt.rough){a.roughnessMap=Mt.rough;Mt.rough.repeat.set(2,2);a.roughness=0.8;}a.needsUpdate=true;}
+}
 const BIKE_SHARED={
   tire:new THREE.MeshStandardMaterial({color:0xffffff,map:tyreTex,bumpMap:tyreTex,bumpScale:0.004,roughness:0.78,side:THREE.DoubleSide}),
   disc:std(0xb9bdc2,0.32,1,{alphaMap:discAlpha,alphaTest:0.5,side:THREE.DoubleSide}),chain:std(0x2c2c30,0.45,0.85),carbon:new THREE.MeshPhysicalMaterial({color:lin(0x1e1f23),roughness:0.35,metalness:0.4,clearcoat:1,clearcoatRoughness:0.1}),
@@ -128,7 +149,7 @@ function makeBike(r){
   const PAINT=lin(rs?0x16151b:r.color),ACC=lin(rs?0x0e0d12:r.accent),PIN=lin(rs?0xd8202a:0xf3efe7),BELLY=lin(0x1c1c20);
   const SILVER=lin(0x8e9096),RED=lin(0xc81e27);
   M.body=new THREE.MeshPhysicalMaterial({color:0xffffff,vertexColors:true,metalness:rs?0.35:0.15,roughness:rs?0.48:0.28,
-    clearcoat:rs?0.25:1,clearcoatRoughness:rs?0.5:0.04,side:THREE.DoubleSide});
+    clearcoat:rs?0.25:1,clearcoatRoughness:rs?0.5:0.04,clearcoatNormalMap:peelTex,clearcoatNormalScale:new THREE.Vector2(0.15,0.15),side:THREE.DoubleSide});
   if(rs)prismatic(M.body);
   M.paint=new THREE.MeshPhysicalMaterial({color:PAINT,metalness:0.15,roughness:rs?0.5:0.28,clearcoat:rs?0.3:1,clearcoatRoughness:rs?0.45:0.04});
   M.acc=new THREE.MeshPhysicalMaterial({color:ACC,metalness:0.15,roughness:0.3,clearcoat:1,clearcoatRoughness:0.05});
@@ -243,10 +264,11 @@ function makeBike(r){
   const nose=new THREE.Mesh(new THREE.CircleGeometry(0.055,24),new THREE.MeshStandardMaterial({map:nt,roughness:0.35}));
   nose.position.set(0,rs?0.8:0.89,rs?0.7:0.683);nose.rotation.x=-0.75;g.add(nose);
   if(r.local){
-    const spot=new THREE.SpotLight(lin(0xf4f7ff),2.4,60,0.38,0.6,1.2);spot.position.set(0,0.88,0.72);
+    const spot=new THREE.SpotLight(lin(0xf4f7ff),2.4*Math.PI*6,60,0.38,0.6,1.2);spot.position.set(0,0.88,0.72);
     spot.target.position.set(0,0,10);g.add(spot);g.add(spot.target);
   }
 
+  suitMats.add(M.suit);suitMats.add(M.suit2);applySuit(M.suit);applySuit(M.suit2);
   const rig=makeRider(g,M);
   scene.add(g);
   return {g,helmet:rig.helmet,rig,wheels:[fw,rw],tailLight:M.tail};
@@ -265,11 +287,11 @@ function disposeBike(g){
 
 function makeRider(g,M){
   const R={parts:{},j:{}};const P=R.parts;
-  const mk=(n,r1,r2,mat)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r2,r1,1,16),mat);m.castShadow=true;g.add(m);P[n]=m;};
+  const mk=(n,r1,r2,mat,bulge=0.1)=>{const m=new THREE.Mesh(limbGeo(r1,r2,bulge),mat);m.castShadow=true;g.add(m);P[n]=m;};
   const bl=(n,sc,mat)=>{const m=new THREE.Mesh(SPH,mat);m.scale.set(sc[0],sc[1],sc[2]);m.castShadow=true;g.add(m);P[n]=m;};
   [-1,1].forEach(sd=>{const s=sd<0?'L':'R';
-    mk('thigh'+s,0.088,0.066,M.suit);mk('shin'+s,0.062,0.048,M.suit);mk('boot'+s,0.052,0.042,M.black);
-    mk('upper'+s,0.062,0.05,M.suit);mk('fore'+s,0.05,0.04,M.suit2);
+    mk('thigh'+s,0.085,0.062,M.suit,0.14);mk('shin'+s,0.06,0.046,M.suit,0.12);mk('boot'+s,0.054,0.046,M.black,0.05);
+    mk('upper'+s,0.06,0.048,M.suit,0.12);mk('fore'+s,0.05,0.038,M.suit2,0.1);
     bl('knee'+s,[0.07,0.07,0.07],M.suit2);bl('elbow'+s,[0.054,0.054,0.054],M.suit2);bl('shoulder'+s,[0.08,0.078,0.08],M.suit2);
     bl('hand'+s,[0.044,0.038,0.066],M.glove);bl('heel'+s,[0.05,0.05,0.06],M.black);
     const ks=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.05,0.08),M.white);ks.castShadow=true;g.add(ks);P['slider'+s]=ks;
@@ -278,11 +300,11 @@ function makeRider(g,M){
   const torso=new THREE.Mesh(SPH,M.suit);torso.castShadow=true;g.add(torso);P.torso=torso;
   const chest=new THREE.Mesh(SPH,M.suit2);chest.castShadow=true;g.add(chest);P.chest=chest;
   bl('hump',[0.11,0.085,0.17],M.paint);
-  mk('neck',0.05,0.05,M.black);
+  mk('neck',0.05,0.05,M.black,0);
   const helmet=new THREE.Group();g.add(helmet);
-  ball(helmet,M.helmet,V3(0,0,0),[0.145,0.15,0.168]);
-  ball(helmet,M.white,V3(0,0.01,-0.005),[0.147,0.12,0.16]);
-  ball(helmet,M.helmet,V3(0,-0.075,0.075),[0.105,0.07,0.1]);
+  const shell=new THREE.Mesh(HELMET_GEO,M.helmet);shell.castShadow=true;helmet.add(shell);
+  ball(helmet,M.helmet,V3(0,-0.085,0.085),[0.11,0.065,0.095]);                  // chin bar
+  ball(helmet,M.black,V3(0,-0.125,0.0),[0.11,0.03,0.13]);                       // neck roll
   const vis=new THREE.Mesh(new THREE.SphereGeometry(1,28,12,Math.PI/2-0.85,1.7,1.12,0.52),M.visor);vis.scale.set(0.152,0.157,0.174);helmet.add(vis);
   box(helmet,M.carbon,V3(0,0.07,-0.15),[0.11,0.025,0.07],[-0.35,0,0]);
   R.helmet=helmet;

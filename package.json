@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "peerjs": "1.5.5",
-    "three": "0.128.0"
+    "three": "0.170.0"
   },
   "devDependencies": {
     "vite": "^5.4.0"

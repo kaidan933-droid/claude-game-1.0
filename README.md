@@ -3,7 +3,7 @@
 **Play online:** https://kaidan933-droid.github.io/claude-game-1.0/  
 Every push to `main` rebuilds and redeploys the site automatically (`.github/workflows/deploy.yml`).
 
-Motorcycle race in three.js (r128) built with Vite: 10 riders on 400cc sport bikes. You ride an Aprilia RS 457 in Prismatic Dark (a look-alike livery, not official artwork).
+Motorcycle race in three.js (r170) built with Vite: 10 riders on 400cc sport bikes. You ride an Aprilia RS 457 in Prismatic Dark (a look-alike livery, not official artwork).
 
     npm install
     npm run dev      # http://localhost:5173
@@ -16,6 +16,8 @@ Motorcycle race in three.js (r128) built with Vite: 10 riders on 400cc sport bik
 **Online:** one player clicks *Host online race* and shares the invite link (or the 5-letter room code); others click *Join*. Humans take grid slots from the back forward, and each one replaces an AI rider, so there are always 10 on track. Anyone joining mid-race spectates and gets a slot next round. If a player drops out, an AI rider takes over their bike; if the host leaves, everyone finishes against the AI. Connections are peer-to-peer through the host's browser (PeerJS); some school or work networks block this.
 
 Race: lights count down on the gantry, then 5 laps; results show when you finish.
+
+**HD assets:** at startup the game loads real CC0 assets from [Poly Haven](https://polyhaven.com) (an HDR sky for the background and lighting, photo-scanned asphalt, grass, gravel and concrete, leather and metal detail for the riders and bikes, and tree models) through its public API, and swaps them in as they arrive. If they can't be reached, the built-in look is used. The menu's *HD assets* button turns this off. Thanks to Poly Haven for the free assets.
 
 Controls: `W`/`Up` throttle, `S`/`Down` brake, `A`/`D` or `Left`/`Right` steer, `R` reset to track, `C` cycles cameras, `M` mutes, `Space` pauses (solo only). The Quality button switches High (bloom, speed blur) / Low.
 
@@ -36,7 +38,8 @@ Riding model (RS 457 class, shared by every bike):
     src/lobby.js     menu, lobby, online race flow
     src/cameras.js   chase / onboard / trackside / aerial
     src/physics.js   engine power curve, gearbox, drag, brakes, tyre and lean constants
-    src/post.js      bloom, speed blur, quality toggle
+    src/assets.js    Poly Haven HD assets (sky, textures, trees) with fallbacks
+    src/post.js      bloom, speed blur, colour grade, quality toggle
     src/effects.js   tyre marks, dust, sparks
     src/audio.js     synthesized engine, tyre, wind and crash sounds
     src/hud.js       race panel, corner note, gear / lean / revs / ABS, minimap

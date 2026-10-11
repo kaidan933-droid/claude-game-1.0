@@ -3,18 +3,17 @@ import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer.j
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass.js';
 import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import {GammaCorrectionShader} from 'three/examples/jsm/shaders/GammaCorrectionShader.js';
+import {OutputPass} from 'three/examples/jsm/postprocessing/OutputPass.js';
 import {renderer,scene,camera,sun} from './core.js';
 
 /* High quality: multisampled HDR render -> bloom on bright lights -> speed blur -> sRGB.
    Low quality: plain render straight to the screen, smaller shadow map. */
 const W=()=>window.innerWidth,H=()=>window.innerHeight;
-const gl2=renderer.capabilities.isWebGL2;
 const rtOpts={type:THREE.HalfFloatType,format:THREE.RGBAFormat};
-const rt=gl2?new THREE.WebGLMultisampleRenderTarget(W(),H(),rtOpts):new THREE.WebGLRenderTarget(W(),H(),rtOpts);
+const rt=new THREE.WebGLRenderTarget(W(),H(),{...rtOpts,samples:4});
 const composer=new EffectComposer(renderer,rt);
 composer.addPass(new RenderPass(scene,camera));
-const bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()),0.5,0.45,0.86);
+const bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()),0.45,0.45,3.0)   // HDR input now: only lights and the sun bloom;
 composer.addPass(bloom);
 /* radial blur toward the vanishing point, only noticeable near top speed */
 const speedBlur=new ShaderPass({
@@ -27,7 +26,8 @@ const speedBlur=new ShaderPass({
       gl_FragColor=c/8.0;}`
 });
 composer.addPass(speedBlur);
-/* colour grade (in linear light, before the sRGB pass): gentle filmic contrast, warm highlights /
+composer.addPass(new OutputPass());                    // tone mapping + sRGB
+/* colour grade (on the final sRGB image, after tone mapping): gentle filmic contrast, warm highlights /
    cool shadows, a touch more saturation and a soft vignette */
 composer.addPass(new ShaderPass({
   uniforms:{tDiffuse:{value:null}},
@@ -36,12 +36,12 @@ composer.addPass(new ShaderPass({
     void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 x=c.rgb;
       float l=dot(x,vec3(0.2126,0.7152,0.0722));
       x=mix(vec3(l),x,1.07);                                   // saturation
-      x=x*(1.0+0.12*(x-0.2));                                  // contrast around mid-grey (linear)
+      x=x+0.1*(x-0.46)*(1.0-abs(2.0*x-1.0));                // gentle S-curve around mid-grey
       x*=mix(vec3(0.97,0.99,1.04),vec3(1.04,1.0,0.95),smoothstep(0.05,0.6,l));   // cool shadows, warm highlights
       vec2 d=vUv-0.5;x*=1.0-0.28*smoothstep(0.35,0.85,length(d*vec2(1.25,1.0)));  // vignette
       gl_FragColor=vec4(max(x,0.0),c.a);}`
 }));
-composer.addPass(new ShaderPass(GammaCorrectionShader));
+
 
 let high=true;
 try{high=localStorage.getItem('apex-quality')!=='low';}catch(e){}

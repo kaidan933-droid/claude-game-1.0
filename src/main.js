@@ -7,6 +7,12 @@ import {updateCamera,snapCamera,camModeNow} from './cameras.js';
 import {render} from './post.js';
 import {updateEffects,clearEffects} from './effects.js';
 import {setupAudio,updateAudio} from './audio.js';
+import {hd,loadHD,setHD,showHD} from './assets.js';
+/* HD (Poly Haven) assets: start loading straight away; turning them off needs a reload */
+{const b=document.getElementById('hdBtn');
+  const label=()=>{b.textContent='HD assets: '+(hd.enabled?'On':'Off');};label();
+  b.addEventListener('click',()=>{if(hd.enabled&&hd.started){setHD(false);location.reload();return;}setHD(!hd.enabled);label();});
+  showHD();loadHD();}
 import {race,stepRace} from './race.js';
 import {updateResults} from './results.js';
 import {updateHud,drawMap} from './hud.js';
@@ -26,7 +32,7 @@ try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)setPaused(t
 race.onFinish=onLocalFinish;
 setupAudio(riders);
 riders.forEach(resetRider);                 // bikes wait on the grid behind the menu
-if(import.meta.env.DEV)window.__apex={race,riders,get player(){return player;},LEN,stepRider,interact,stepRace,updateEffects,setSlot};   // dev-only hook for poking the race from the console
+if(import.meta.env.DEV)window.__apex={race,riders,get player(){return player;},LEN,stepRider,interact,stepRace,updateEffects,setSlot,hd};   // dev-only hook for poking the race from the console
 
 let last=performance.now();
 function frame(now){
