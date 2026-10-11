@@ -170,7 +170,7 @@ function frame(now){
   sun.position.copy(sun.target.position).addScaledVector(sunDir,500);
   camera.updateMatrixWorld();
   fogSun.sunView.value.copy(sunDir).transformDirection(camera.matrixWorldInverse);
-  updateScenery(camera);
+  updateScenery(camera,dt);
   visT-=dt;if(visT<=0){visT=1/30;sunVis=sunVisibility(camera.position);}
   updateEffects(running?dt:0,cars,cars.map(e=>vis.get(e.id)),camera.position);
   const cm=camMode();

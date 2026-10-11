@@ -1,34 +1,16 @@
 import * as THREE from 'three';
-import {rnd,clamp,sstep,lin,scene,tex,speckle,std,sunDir} from './core.js';
+import {rnd,clamp,sstep,lin,scene,tex,speckle,std,sunDir,QUALITY} from './core.js';
+import {asphaltSet,kerbSet,grassSet,gravelSet} from './textures.js';
 import {T,RL,HW,CURB_W} from './sim/world.js';
+import {buildForest,updateForest,setForestQuality} from './trees.js';
 
 const {N,ds,LEN,X,Y,Z,NX,NZ,TX,TZ,BANK,CURB,BAR_L,BAR_R,GRAVEL_L,GRAVEL_R,mod}=T;
 
 /* ================= textures ================= */
-const asphaltTex=tex(512,1024,(g,w,h)=>{
-  g.fillStyle='#57565a';g.fillRect(0,0,w,h);
-  speckle(g,w,h,['#4a494d','#626166','#3f3e42','#6d6c70','#535257','#77767a','#47464a'],160000,1.7);
-  /* repair patches and sealed cracks */
-  for(let i=0;i<7;i++){g.fillStyle=rnd()<.5?'rgba(30,30,34,.22)':'rgba(120,118,115,.12)';const x=rnd()*w*.8,y=rnd()*h,ww=40+rnd()*160,hh=60+rnd()*260;g.fillRect(x,y,ww,hh);}
-  g.strokeStyle='rgba(20,20,22,.55)';g.lineWidth=2;
-  for(let i=0;i<10;i++){g.beginPath();let x=rnd()*w,y=rnd()*h;g.moveTo(x,y);for(let k=0;k<6;k++){x+=(rnd()-.5)*50;y+=rnd()*40;g.lineTo(x,y);}g.stroke();}
-  /* painted edge lines */
-  g.fillStyle='#e9e6df';g.fillRect(10,0,12,h);g.fillRect(w-22,0,12,h);
-  speckle(g,w,h,['rgba(80,80,80,.35)'],3000,2);
-},true);
-asphaltTex.wrapS=THREE.ClampToEdgeWrapping;
-const asphaltBump=tex(256,512,(g,w,h)=>{g.fillStyle='#808080';g.fillRect(0,0,w,h);speckle(g,w,h,['#6a6a6a','#999','#555','#aaa'],60000,1.6);},false);
 const concreteTex=tex(512,512,(g,w,h)=>{g.fillStyle='#8e8b84';g.fillRect(0,0,w,h);
   speckle(g,w,h,['#86837c','#97948d','#7b7871','#a19e97'],60000,1.8);
   g.fillStyle='rgba(40,38,34,.6)';for(let y=0;y<h;y+=64)g.fillRect(0,y,w,3);for(let x=0;x<w;x+=128)g.fillRect(x,0,3,h);
   g.fillStyle='rgba(30,30,30,.25)';for(let i=0;i<40;i++)g.fillRect(rnd()*w,rnd()*h,20+rnd()*60,4+rnd()*8);});
-const curbTex=tex(64,128,(g,w,h)=>{g.fillStyle='#c42a26';g.fillRect(0,0,w,h/2);g.fillStyle='#ece8e0';g.fillRect(0,h/2,w,h/2);
-  speckle(g,w,h,['rgba(0,0,0,.18)','rgba(255,255,255,.1)'],700,1.5);});
-const grassTex=tex(512,512,(g,w,h)=>{g.fillStyle='#4f6a2e';g.fillRect(0,0,w,h);
-  speckle(g,w,h,['#46612a','#5a7635','#3e5524','#66803c','#52702f','#71894a','#3a4f22'],90000,2.2);
-  for(let i=0;i<2500;i++){g.strokeStyle=rnd()<.5?'rgba(30,45,15,.35)':'rgba(140,160,80,.22)';g.lineWidth=1;const x=rnd()*w,y=rnd()*h;g.beginPath();g.moveTo(x,y);g.lineTo(x+rnd()*4-2,y-3-rnd()*5);g.stroke();}});
-const gravelTex=tex(256,256,(g,w,h)=>{g.fillStyle='#b9a98d';g.fillRect(0,0,w,h);
-  speckle(g,w,h,['#a99878','#c9bb9e','#978767','#d6c9ae','#857559','#e1d6bf'],30000,2.6);});
 const armcoTex=tex(16,128,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);
   [[0,'#9aa0a6'],[.1,'#dfe3e7'],[.22,'#80868c'],[.34,'#d6dade'],[.46,'#868c92'],[.54,'#9aa0a6'],[.6,'#dfe3e7'],[.72,'#80868c'],[.84,'#d6dade'],[.96,'#868c92'],[1,'#9aa0a6']].forEach(s=>gr.addColorStop(s[0],s[1]));
   g.fillStyle=gr;g.fillRect(0,0,w,h);speckle(g,w,h,['rgba(90,70,50,.25)'],80,2);});
@@ -52,7 +34,7 @@ function ribbon(offs,yOff,mat,opt={}){
       pos.push(X[i]+NX[i]*o,Y[i]+o*bank+(typeof yOff==='function'?yOff(k,i,o):yOff),Z[i]+NZ[i]*o);
       uv.push(us[k],j*ds/vs);
       if(col){const c=opt.color(i,o,k);col.push(c[0],c[1],c[2]);}
-      if(j<i1&&k<n-1){const a=(j-i0)*n+k;idx.push(a,a+n,a+1,a+1,a+n,a+n+1);}
+      if(j<i1&&k<n-1){const a=(j-i0)*n+k;idx.push(a,a+1,a+n,a+1,a+n+1,a+n);}   // upward-facing
     }
   }
   const g=new THREE.BufferGeometry();
@@ -75,30 +57,39 @@ const roadOffs=[-HW,-HW+0.3,-3.6,-2.2,-1,0,1,2.2,3.6,HW-0.3,HW];
 const lineD=i=>RL.D[i];
 const rubber=(i,o)=>{const t=(o-lineD(i))/1.4;const r=Math.exp(-t*t);const p=0.93+0.07*Math.sin(i*0.021)+0.04*Math.sin(i*0.13+1.7);return [p*(1-0.2*r),p*(1-0.2*r),p*(1-0.18*r)];};
 const concrete=i=>Math.abs(BANK[i])>0.2;
-const roadMat=new THREE.MeshStandardMaterial({map:asphaltTex,bumpMap:asphaltBump,bumpScale:0.02,roughness:0.86,vertexColors:true,envMapIntensity:0.35});
-const concMat=new THREE.MeshStandardMaterial({map:concreteTex,bumpMap:asphaltBump,bumpScale:0.02,roughness:0.9,vertexColors:true,envMapIntensity:0.3});
+const TS=QUALITY>=1?1024:512;
+const asp=asphaltSet(TS);
+const roadMat=new THREE.MeshStandardMaterial({...asp,normalScale:new THREE.Vector2(0.12,0.12),vertexColors:true,envMapIntensity:0.45});
+const concMat=new THREE.MeshStandardMaterial({map:concreteTex,normalMap:asp.normalMap,normalScale:new THREE.Vector2(0.4,0.4),roughness:0.9,vertexColors:true,envMapIntensity:0.3});
 const roadU=roadOffs.map(o=>(o+HW)/(2*HW));
-for(const [a,b] of ranges(i=>!concrete(i)))ribbon(roadOffs,0.0,roadMat,{i0:a,i1:b+1,vLen:20,u:roadU,color:rubber});
+for(const [a,b] of ranges(i=>!concrete(i)))ribbon(roadOffs,0.0,roadMat,{i0:a,i1:b+1,vLen:10.4,u:roadU,color:rubber});
 for(const [a,b] of ranges(concrete))ribbon(roadOffs,0.0,concMat,{i0:a,i1:b+1,vLen:10,u:roadOffs.map(o=>(o+HW)/(2*HW)*2.5),color:rubber});
 
-/* curbs: raised a few cm on the outside edge */
-const curbMat=new THREE.MeshStandardMaterial({map:curbTex,roughness:0.55,envMapIntensity:0.4});
+/* kerbs: red/white on quick corners, yellow/black where the corner is slow; raised on the outside */
+const kerbRW=kerbSet(),kerbYB=kerbSet([226,182,30],[30,30,32]);
+const curbMat=new THREE.MeshStandardMaterial({...kerbRW,normalScale:new THREE.Vector2(0.3,0.3),envMapIntensity:0.4});
+const curbMatY=new THREE.MeshStandardMaterial({...kerbYB,normalScale:new THREE.Vector2(0.3,0.3),envMapIntensity:0.4});
 for(const [a,b] of ranges(i=>CURB[i]===1,3)){
-  ribbon([HW-0.02,HW+CURB_W*0.5,HW+CURB_W],(k)=>[0.006,0.035,0.05][k],curbMat,{i0:a,i1:b,vLen:3});
-  ribbon([-HW-CURB_W,-HW-CURB_W*0.5,-HW+0.02],(k)=>[0.05,0.035,0.006][k],curbMat,{i0:a,i1:b,vLen:3});
+  let kmax=0;for(let i=a;i<=b;i++)kmax=Math.max(kmax,Math.abs(T.K[mod(i)]));
+  const m=kmax>1/70?curbMatY:curbMat;
+  ribbon([HW-0.02,HW+CURB_W*0.5,HW+CURB_W],(k)=>[0.006,0.035,0.05][k],m,{i0:a,i1:b,vLen:2});
+  ribbon([-HW-CURB_W,-HW-CURB_W*0.5,-HW+0.02],(k)=>[0.05,0.035,0.006][k],m,{i0:a,i1:b,vLen:2});
 }
-/* grass verges out to the barriers, dropping to the terrain at the edge */
-const grassMat=new THREE.MeshStandardMaterial({map:grassTex,roughness:0.95,envMapIntensity:0.2});
-grassTex.repeat.set(6,1);
+/* grass verges out to the barriers, dropping to the terrain at the edge; mown in stripes */
+const gs=grassSet(TS/2);
+const grassMat=new THREE.MeshStandardMaterial({...gs,normalScale:new THREE.Vector2(0.12,0.12),roughness:0.95,envMapIntensity:0.2,vertexColors:true});
+for(const t of [gs.map,gs.normalMap])t.repeat.set(3,1);
+const mow=i=>{const f=((i*ds/7)|0)%2?1.07:0.93;return [f,f,f];};
 const vergeR=[HW-0.05,HW+1.5,i=>BAR_R[i]-1,i=>BAR_R[i]+1.4,i=>BAR_R[i]+4];
 const vergeL=[i=>-BAR_L[i]-4,i=>-BAR_L[i]-1.4,i=>-BAR_L[i]+1,-HW-1.5,-HW+0.05];
-ribbon(vergeR,(k)=>[-0.02,-0.06,-0.12,-0.2,-0.5][k],grassMat,{vLen:12});
-ribbon(vergeL,(k)=>[-0.5,-0.2,-0.12,-0.06,-0.02][k],grassMat,{vLen:12});
+ribbon(vergeR,(k)=>[-0.02,-0.06,-0.12,-0.2,-0.5][k],grassMat,{vLen:12,color:(i,o,k)=>k>=3?[0.8,0.8,0.75]:mow(i)});
+ribbon(vergeL,(k)=>[-0.5,-0.2,-0.12,-0.06,-0.02][k],grassMat,{vLen:12,color:(i,o,k)=>k<=1?[0.8,0.8,0.75]:mow(i)});
 /* gravel traps */
-const gravelMat=new THREE.MeshStandardMaterial({map:gravelTex,roughness:1,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
-gravelTex.repeat.set(4,1);
-for(const [a,b] of ranges(i=>GRAVEL_R[i]===1,2))ribbon([HW+2.5,HW+3.2,i=>BAR_R[i]-0.6],(k)=>[-0.04,-0.05,-0.12][k],gravelMat,{i0:a,i1:b,vLen:8});
-for(const [a,b] of ranges(i=>GRAVEL_L[i]===1,2))ribbon([i=>-BAR_L[i]+0.6,-HW-3.2,-HW-2.5],(k)=>[-0.12,-0.05,-0.04][k],gravelMat,{i0:a,i1:b,vLen:8});
+const gv=gravelSet(TS/2);
+for(const t of Object.values(gv))t.repeat.set(3,1);
+const gravelMat=new THREE.MeshStandardMaterial({...gv,normalScale:new THREE.Vector2(0.3,0.3),polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+for(const [a,b] of ranges(i=>GRAVEL_R[i]===1,2))ribbon([HW+2.5,HW+3.2,i=>BAR_R[i]-0.6],(k)=>[-0.04,-0.05,-0.12][k],gravelMat,{i0:a,i1:b,vLen:6});
+for(const [a,b] of ranges(i=>GRAVEL_L[i]===1,2))ribbon([i=>-BAR_L[i]+0.6,-HW-3.2,-HW-2.5],(k)=>[-0.12,-0.05,-0.04][k],gravelMat,{i0:a,i1:b,vLen:6});
 
 /* ================= barriers ================= */
 /* double armco: two W-beams on posts; on the start/finish straight a concrete pit wall */
@@ -182,54 +173,95 @@ const base2=blur(blur(base,10),10);
 /* a few big wooded hills (the Hohe Acht is the tallest in the Eifel) */
 const hills=[];for(let k=0;k<9;k++)hills.push([minX+rnd()*(maxX-minX),minZ+rnd()*(maxZ-minZ),120+rnd()*260,25+rnd()*55]);
 const H=new Float32Array(GW*GH),DIST=new Float32Array(GW*GH),FOREST=new Float32Array(GW*GH);
-for(let c=0;c<GW*GH;c++){
-  const x=cx(c),z=cz(c),i=near[c],dist=Math.sqrt(nd2[c]);
-  const lat=(x-X[i])*NX[i]+(z-Z[i])*NZ[i];
+const bil=(A,x,z)=>{const fx=(x-gx0)/CELL,fz=(z-gz0)/CELL,xi=clamp(Math.floor(fx),0,GW-2),zi=clamp(Math.floor(fz),0,GH-2),u=clamp(fx-xi,0,1),v=clamp(fz-zi,0,1);
+  return (A[zi*GW+xi]*(1-u)+A[zi*GW+xi+1]*u)*(1-v)+(A[(zi+1)*GW+xi]*(1-u)+A[(zi+1)*GW+xi+1]*u)*v;};
+/* the one terrain formula: road height near the track blending into rolling hills */
+function terrainH(x,z,i){
+  const dx=x-X[i],dz=z-Z[i],dist=Math.hypot(dx,dz),lat=dx*NX[i]+dz*NZ[i];
   const bar=lat>0?BAR_R[i]:BAR_L[i];
   const road=Y[i]+clamp(lat,-bar,bar)*BANK[i]-0.5;
-  let nat=base2[c]+(fbm(x/420,z/420)-0.5)*70*sstep(30,500,dist)+(fbm(x/90+7,z/90)-0.5)*9;
-  for(const h of hills){const dx=x-h[0],dz=z-h[1],r2=(dx*dx+dz*dz)/(h[2]*h[2]);nat+=h[3]*Math.exp(-r2)*sstep(80,350,dist);}
+  let nat=bil(base2,x,z)+(fbm(x/420,z/420)-0.5)*70*sstep(30,500,dist)+(fbm(x/90+7,z/90)-0.5)*9;
+  for(const h of hills){const ex=x-h[0],ez=z-h[1],r2=(ex*ex+ez*ez)/(h[2]*h[2]);nat+=h[3]*Math.exp(-r2)*sstep(80,350,dist);}
   const w=sstep(bar+4,bar+75,dist);
-  H[c]=road*(1-w)+nat*w;DIST[c]=dist-bar;
+  return road*(1-w)+nat*w;
+}
+/* nearest track sample to a point (grid lookup, then a short local search) */
+function nearestSample(x,z){
+  const fx=clamp(Math.round((x-gx0)/CELL),0,GW-1),fz=clamp(Math.round((z-gz0)/CELL),0,GH-1),i0=near[fz*GW+fx];
+  let best=Infinity,bi=i0;for(let k=-10;k<=10;k++){const j=mod(i0+k),ex=x-X[j],ez=z-Z[j],d=ex*ex+ez*ez;if(d<best){best=d;bi=j;}}
+  return bi;
+}
+const BAND=60;          // a track-following terrain band covers this far past the barriers
+for(let c=0;c<GW*GH;c++){
+  const x=cx(c),z=cz(c),i=near[c],dist=Math.sqrt(nd2[c]);
+  const lat=(x-X[i])*NX[i]+(z-Z[i])*NZ[i],bar=lat>0?BAR_R[i]:BAR_L[i];
+  H[c]=terrainH(x,z,i);DIST[c]=dist-bar;
   FOREST[c]=fbm(x/260+3,z/260-5,4);
 }
-export function groundAt(x,z){
-  const fx=(x-gx0)/CELL,fz=(z-gz0)/CELL,xi=clamp(Math.floor(fx),0,GW-2),zi=clamp(Math.floor(fz),0,GH-2),u=clamp(fx-xi,0,1),v=clamp(fz-zi,0,1);
-  const a=H[zi*GW+xi],b=H[zi*GW+xi+1],c=H[(zi+1)*GW+xi],d=H[(zi+1)*GW+xi+1];
-  return (a*(1-u)+b*u)*(1-v)+(c*(1-u)+d*u)*v;
-}
+export function groundAt(x,z){const i=nearestSample(x,z);return terrainH(x,z,i);}
 /* distance outside the nearest barrier (negative = inside the track corridor) */
 export function clearanceAt(x,z){
-  const fx=Math.round((x-gx0)/CELL),fz=Math.round((z-gz0)/CELL);if(fx<0||fz<0||fx>=GW||fz>=GH)return 1e4;
-  const c=fz*GW+fx,i=near[c],dx=x-X[i],dz=z-Z[i],lat=dx*NX[i]+dz*NZ[i];
-  /* exact for the nearby samples */
-  let best=Infinity,bi=i;for(let k=-8;k<=8;k++){const j=mod(i+k),ex=x-X[j],ez=z-Z[j],d=ex*ex+ez*ez;if(d<best){best=d;bi=j;}}
+  const bi=nearestSample(x,z),best=(x-X[bi])**2+(z-Z[bi])**2;
   const l2=(x-X[bi])*NX[bi]+(z-Z[bi])*NZ[bi];
   return Math.sqrt(best)-(l2>0?BAR_R[bi]:BAR_L[bi]);
 }
+const meadow=lin(0x5d7637),forestC=lin(0x24331c),field=lin(0x8e8c4a),dirt=lin(0x6b5f45),needles=lin(0x3d3324);
+function groundColour(f,d,out){
+  const fo=sstep(0.42,0.55,f)*sstep(4,30,d);
+  out.copy(meadow).lerp(field,sstep(0.25,0.18,f)*0.8*sstep(20,60,d)).lerp(forestC,fo);
+  /* forest floor (needles, shade) where the trees stand close to the track */
+  if(d>3&&d<45)out.lerp(needles,0.35*sstep(3,8,d)*(1-sstep(30,45,d)));
+  if(d<3)out.lerp(dirt,0.15);
+  return out;
+}
+const gt=gs.map.clone();gt.needsUpdate=true;gt.repeat.set(1,1);const gn=gs.normalMap.clone();gn.needsUpdate=true;gn.repeat.set(1,1);
+const groundMat=new THREE.MeshStandardMaterial({map:gt,normalMap:gn,normalScale:new THREE.Vector2(0.1,0.1),vertexColors:true,roughness:0.97,envMapIntensity:0.25});
 (function terrainMesh(){
+  /* coarse grid; inside the band it is pushed well down so it can never poke through the road */
   const pos=new Float32Array(GW*GH*3),col=new Float32Array(GW*GH*3),uv=new Float32Array(GW*GH*2);
-  const meadow=lin(0x5d7637),forest=lin(0x24331c),field=lin(0x8e8c4a),dirt=lin(0x6b5f45);
   const c3=new THREE.Color();
   for(let c=0;c<GW*GH;c++){
-    pos[c*3]=cx(c);pos[c*3+1]=H[c];pos[c*3+2]=cz(c);uv[c*2]=cx(c)/40;uv[c*2+1]=cz(c)/40;
-    const f=FOREST[c],d=DIST[c];
-    const fo=sstep(0.42,0.55,f)*sstep(4,30,d);
-    c3.copy(meadow).lerp(field,sstep(0.25,0.18,f)*0.8*sstep(20,60,d)).lerp(forest,fo);
-    if(d<3)c3.lerp(dirt,0.15);
-    col[c*3]=c3.r;col[c*3+1]=c3.g;col[c*3+2]=c3.b;
+    const i=near[c],sink=DIST[c]<BAND-8?Math.min(H[c],Y[i]-4):H[c];
+    pos[c*3]=cx(c);pos[c*3+1]=sink;pos[c*3+2]=cz(c);uv[c*2]=cx(c)/9;uv[c*2+1]=cz(c)/9;
+    groundColour(FOREST[c],DIST[c],c3);col[c*3]=c3.r;col[c*3+1]=c3.g;col[c*3+2]=c3.b;
   }
   const idx=[];
   for(let z=0;z<GH-1;z++)for(let x=0;x<GW-1;x++){const a=z*GW+x;
-    /* drop cells that sit right on the track corridor; the verges cover those */
     if(DIST[a]<-2&&DIST[a+1]<-2&&DIST[a+GW]<-2&&DIST[a+GW+1]<-2)continue;
     idx.push(a,a+GW,a+1,a+1,a+GW,a+GW+1);}
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
   g.setIndex(idx);g.computeVertexNormals();
-  const gt=grassTex.clone();gt.needsUpdate=true;gt.repeat.set(1,1);
-  const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({map:gt,vertexColors:true,roughness:0.97,envMapIntensity:0.25}));
-  m.receiveShadow=true;scene.add(m);
+  const m=new THREE.Mesh(g,groundMat);m.receiveShadow=true;scene.add(m);
+})();
+(function terrainBand(){
+  /* fine terrain following the track on both sides, from the verge out past the band edge;
+     columns stop early where another part of the track comes close */
+  const COLS=[0,3,7,12,19,28,40,54,BAND+6];
+  const c3=new THREE.Color();
+  for(const side of [-1,1]){
+    for(let a=0;a<N;a+=CHUNK){
+      const b=Math.min(N,a+CHUNK),pos=[],col=[],uv=[],idx=[],n=COLS.length;
+      for(let j=a;j<=b;j+=2){
+        const i=mod(j),bar=side>0?BAR_R[i]:BAR_L[i];let lastO=bar+3.9;
+        for(let k=0;k<n;k++){
+          let o=bar+3.9+COLS[k];
+          let x=X[i]+NX[i]*side*o,z=Z[i]+NZ[i]*side*o;
+          const ns=nearestSample(x,z);let dI=Math.abs(ns-i);dI=Math.min(dI,N-dI);
+          if(dI>30){o=lastO;x=X[i]+NX[i]*side*o;z=Z[i]+NZ[i]*side*o;}else lastO=o;
+          const y=k===0?Y[i]+side*o*BANK[i]-0.5:terrainH(x,z,i);
+          pos.push(x,y,z);uv.push(x/9,z/9);
+          const fx=clamp(Math.round((x-gx0)/CELL),0,GW-1),fz=clamp(Math.round((z-gz0)/CELL),0,GH-1);
+          groundColour(bil(FOREST,x,z),o-bar,c3);col.push(c3.r,c3.g,c3.b);
+          const r=(j-a)/2;
+          if(j+2<=b&&k<n-1){const q=r*n+k;if(side<0)idx.push(q,q+n,q+1,q+1,q+n,q+n+1);else idx.push(q,q+1,q+n,q+1,q+n+1,q+n);}
+        }
+      }
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+      g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
+      const m=new THREE.Mesh(g,groundMat);m.receiveShadow=true;scene.add(m);
+    }
+  }
 })();
 /* far hills ringing the valley */
 (function(){
@@ -295,7 +327,7 @@ grandstand(160,1,90,9);
   const glass=box(0.3,2.6,170,new THREE.MeshStandardMaterial({color:lin(0x2a3644),roughness:0.05,metalness:0.9}),1,9.9,0,g);glass.castShadow=false;
   box(10,3.2,170,std(0xd2ccc4,0.85),7,10,0,g);
   /* pit lane */
-  const lane=new THREE.Mesh(new THREE.PlaneGeometry(7,190),new THREE.MeshStandardMaterial({map:asphaltTex,roughness:0.9}));lane.rotation.x=-Math.PI/2;lane.rotation.z=0;lane.position.set(-4,0.02,0);lane.receiveShadow=true;g.add(lane);
+  const lane=new THREE.Mesh(new THREE.PlaneGeometry(7,190),new THREE.MeshStandardMaterial({map:asp.map,roughness:0.9}));lane.rotation.x=-Math.PI/2;lane.rotation.z=0;lane.position.set(-4,0.02,0);lane.receiveShadow=true;g.add(lane);
   addOcc(g);
 })();
 /* spectator banks at Brünnchen and the Karussell, with campers and tents like a 24h weekend */
@@ -383,6 +415,46 @@ export const startLights=[];
     box(0.06,1,0.06,post,0,0.5,0.02,g);
   }
 })();
+/* braking boards before slow corners, marshal posts, tyre walls at the hairpins */
+(function(){
+  const post=std(0x6a6e73,0.5,0.6);
+  const boardTex=n=>tex(128,160,(c,w,h)=>{c.fillStyle='#f3f1ec';c.fillRect(0,0,w,h);c.strokeStyle='#1b1b1f';c.lineWidth=8;c.strokeRect(4,4,w-8,h-8);
+    c.fillStyle='#1b1b1f';c.font='800 70px "Chakra Petch", sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(n),w/2,h/2+4);});
+  const bt={};[100,200,300].forEach(n=>bt[n]=new THREE.MeshStandardMaterial({map:boardTex(n),roughness:0.6}));
+  for(const c of T.corners){
+    if(c.kind!=='hairpin'&&c.kind!=='tight')continue;
+    const side=c.sg>0?-1:1;                     // outside of the corner
+    for(const n of [100,200,300]){
+      const s=c.i0*ds-n,i=T.idx(s);
+      if(Math.abs(T.K[i])>1/250)continue;     // only on the approach straight
+      const bar=side>0?BAR_R[i]:BAR_L[i];
+      const g=frameAt(s,side*(bar+0.5));
+      const b=new THREE.Mesh(new THREE.PlaneGeometry(0.8,1.0),bt[n]);b.position.set(0,1.3,0);b.rotation.y=Math.PI;g.add(b);
+      box(0.08,1.0,0.08,post,0,0.5,0.03,g);
+    }
+  }
+  /* marshal posts: little white huts with an orange band, every ~450 m */
+  const hut=std(0xe9e6df,0.8),band=std(0xe0702a,0.6),roof=std(0x3a3d40,0.7);
+  for(let s=300,k=0;s<LEN-200;s+=430+((s*13)%120),k++){
+    const i=T.idx(s),side=k%2?1:-1,bar=side>0?BAR_R[i]:BAR_L[i];
+    if(side>0&&pitWall(i))continue;
+    const g=frameAt(s,side*(bar+2.6));if(side<0)g.rotation.y+=Math.PI;
+    box(1.6,2.2,1.8,hut,0.8,1.1,0,g);box(1.62,0.3,1.82,band,0.8,1.9,0,g);box(1.9,0.12,2.1,roof,0.8,2.28,0,g);
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(0.6,0.4),std(0xf2c230,0.7,0,{side:THREE.DoubleSide}));fl.position.set(-0.1,2.5,0.7);g.add(fl);
+    box(0.04,1.4,0.04,post,-0.1,2.0,0.4,g);
+  }
+  /* tyre walls in front of the armco on the outside of the hairpins */
+  const pts=[];
+  for(const c of T.corners){if(c.kind!=='hairpin')continue;const side=c.sg>0?-1:1;
+    for(let i=c.i0-10;i<=c.i1+25;i++){const ii=mod(i),bar=(side>0?BAR_R[ii]:BAR_L[ii])-0.32;
+      for(let q=0;q<3;q++){const o=side*bar,a=q*0.66;const x=X[ii]+NX[ii]*o+TX[ii]*a,z=Z[ii]+NZ[ii]*o+TZ[ii]*a;for(let lvl=0;lvl<3;lvl++)pts.push([x,Y[ii]+o*BANK[ii]+lvl*0.27,z]);}}}
+  if(pts.length){
+    const geo=new THREE.TorusGeometry(0.24,0.1,6,10);geo.rotateX(Math.PI/2);geo.translate(0,0.12,0);
+    const m=new THREE.InstancedMesh(geo,std(0x18181a,0.9),pts.length),d=new THREE.Object3D(),cc=new THREE.Color();
+    pts.forEach((p,k)=>{d.position.set(p[0],p[1],p[2]);d.updateMatrix();m.setMatrixAt(k,d.matrix);cc.set(((k/3|0)%8)<2?0xe8e6e1:0x18181a);m.setColorAt(k,cc);});
+    m.receiveShadow=true;m.castShadow=true;scene.add(m);
+  }
+})();
 /* painted graffiti on the asphalt, Nordschleife-style */
 (function(){
   const words=['GRÜNE HÖLLE','VOLLGAS','24H','GO GO GO','RING ♥','FLAT OUT','EIFEL','#7','NO LIFT','KEEP LEFT'];
@@ -407,101 +479,56 @@ export const startLights=[];
 })();
 
 /* ================= trees =================
-   Eifel forest: spruce and beech right up to the hedges. Instanced per 600 m chunk so distant
-   chunks can be skipped, and recorded in a grid for the sun-through-the-trees test. */
+   Eifel forest: spruce and beech right up to the hedges (meshes in trees.js), recorded in a
+   grid for the sun-through-the-trees test. */
 export const treeGrid=new Map();const TG=24;
 const tkey=(x,z)=>(Math.floor(x/TG)+4096)*65536+(Math.floor(z/TG)+4096);
 function gridAdd(t){const k=tkey(t.x,t.z);let a=treeGrid.get(k);if(!a)treeGrid.set(k,a=[]);a.push(t);}
 export function treesNear(x,z){return treeGrid.get(tkey(x,z));}
-const chunks=[];
 (function(){
-  const spruceTrunk=new THREE.CylinderGeometry(0.16,0.28,1,5,1,true);spruceTrunk.translate(0,0.5,0);
-  const spruce=new THREE.BufferGeometry();
-  {/* stacked cones, merged */
-    const parts=[[1.0,0.42,0.18],[0.78,0.58,0.42],[0.55,0.62,0.66]];const ps=[],ns=[],ix=[];let base=0;
-    for(const [r,h,y] of parts){const c=new THREE.ConeGeometry(r,h,6,1,true);c.translate(0,y+h/2,0);const p=c.attributes.position.array,n=c.attributes.normal.array,id=c.index.array;
-      for(let k=0;k<p.length;k++){ps.push(p[k]);ns.push(n[k]);}for(let k=0;k<id.length;k++)ix.push(id[k]+base);base+=p.length/3;}
-    spruce.setAttribute('position',new THREE.Float32BufferAttribute(ps,3));spruce.setAttribute('normal',new THREE.Float32BufferAttribute(ns,3));spruce.setIndex(ix);
-  }
-  const beech=new THREE.IcosahedronGeometry(1,0);
-  {const p=beech.attributes.position;for(let k=0;k<p.count;k++){const x=p.getX(k),y=p.getY(k),z=p.getZ(k);const f=1+0.18*Math.sin(x*5+z*3)+0.12*Math.cos(y*6);p.setXYZ(k,x*f,y*f*0.85+1.6,z*f);}beech.computeVertexNormals();}
-  const beechTrunk=new THREE.CylinderGeometry(0.14,0.24,1,5,1,true);beechTrunk.translate(0,0.5,0);
-  const mSpruce=new THREE.MeshStandardMaterial({color:lin(0x2c4527),roughness:0.95,flatShading:true});
-  const mBeech=new THREE.MeshStandardMaterial({color:lin(0x4f6a2a),roughness:0.9,flatShading:true});
-  const mTrunk=new THREE.MeshStandardMaterial({color:lin(0x4a3b2c),roughness:1});
-  const CH=300,nCh=Math.ceil(N/CH);
-  const lists=[...Array(nCh)].map(()=>({sp:[],be:[]}));
+  const CH=100,nCh=Math.ceil(N/CH);
+  const lists=[...Array(nCh)].map(()=>({sp:[],be:[],ug:[]}));
   const clearOk=(x,z)=>{for(const k of keepClear){const dx=x-k[0],dz=z-k[1];if(dx*dx+dz*dz<k[2]*k[2])return false;}return true;};
+  const addTree=(i,x,z,isSpruce,far)=>{
+    const h=isSpruce?(far?17:15)+rnd()*15:13+rnd()*9,r=isSpruce?h*(0.14+rnd()*0.03):h*(0.24+rnd()*0.06);
+    const t={x,z,y:groundAt(x,z)-0.3,h,r,sp:isSpruce,i};
+    lists[Math.floor(i/CH)][isSpruce?'sp':'be'].push(t);gridAdd(t);
+  };
   for(let i=0;i<N;i+=3){
     for(const side of [-1,1]){
       const bar=side>0?BAR_R[i]:BAR_L[i];
       const rows=4+((rnd()*4)|0);
       for(let r=0;r<rows;r++){
-        if(rnd()<0.25)continue;
-        const o=side*(bar+5.5+r*6.5+rnd()*5);
-        const a=(rnd()-0.5)*6;
+        if(rnd()<0.22)continue;
+        const o=side*(bar+5.2+r*6+rnd()*4.5),a=(rnd()-0.5)*6;
         const x=X[i]+NX[i]*o+TX[i]*a,z=Z[i]+NZ[i]*o+TZ[i]*a;
         if(clearanceAt(x,z)<4.5||!clearOk(x,z))continue;
-        const isSpruce=rnd()<0.62;
-        const h=isSpruce?15+rnd()*16:12+rnd()*9,rad=isSpruce?2.2+rnd()*1.3:2.8+rnd()*1.2;
-        const t={x,z,y:groundAt(x,z)-0.3,h,r:rad,sp:isSpruce,i};
-        lists[Math.floor(i/CH)][isSpruce?'sp':'be'].push(t);gridAdd(t);
+        addTree(i,x,z,rnd()<0.64,false);
+      }
+    }
+    /* undergrowth: ferns and tufts at the foot of the armco and between armco and hedge */
+    for(const side of [-1,1]){
+      const bar=side>0?BAR_R[i]:BAR_L[i];
+      for(let k=0;k<2;k++){
+        const fern=rnd()<0.45,o=side*(fern?bar+0.6+rnd()*1.5:(rnd()<0.5?bar-0.5-rnd()*0.4:bar+0.4+rnd()*1.8)),a=(rnd()-0.5)*6;
+        const x=X[i]+NX[i]*o+TX[i]*a,z=Z[i]+NZ[i]*o+TZ[i]*a;
+        if(!clearOk(x,z)||(side>0&&BAR_R[i]<HW+3))continue;
+        lists[Math.floor(i/CH)].ug.push({x,z,y:Y[i]+o*BANK[i]-(Math.abs(o)>bar?0.25:0.1),s:fern?0.9+rnd()*0.8:0.6+rnd()*0.6,rot:rnd()*6.28,fern});
       }
     }
   }
-  /* sparse forest further back */
-  for(let k=0;k<9000;k++){
-    const i=(rnd()*N)|0,side=rnd()<0.5?-1:1,o=side*(60+rnd()*260);
+  /* forest further back */
+  for(let k=0;k<12000;k++){
+    const i=(rnd()*N)|0,side=rnd()<0.5?-1:1,o=side*(55+rnd()*280);
     const x=X[i]+NX[i]*o,z=Z[i]+NZ[i]*o;
     if(clearanceAt(x,z)<8||!clearOk(x,z))continue;
-    const f=FOREST[Math.round((z-gz0)/CELL)*GW+Math.round((x-gx0)/CELL)];if(f<0.45)continue;
-    const isSpruce=rnd()<0.7,h=isSpruce?16+rnd()*14:12+rnd()*8;
-    const t={x,z,y:groundAt(x,z)-0.3,h,r:isSpruce?2.4+rnd():2.8+rnd()*1.2,sp:isSpruce,i};
-    lists[Math.floor(i/CH)][isSpruce?'sp':'be'].push(t);gridAdd(t);
+    const f=FOREST[Math.round((z-gz0)/CELL)*GW+Math.round((x-gx0)/CELL)];if(f<0.42)continue;
+    addTree(i,x,z,rnd()<0.7,true);
   }
-  const d=new THREE.Object3D(),col=new THREE.Color();
-  lists.forEach((L,ci)=>{
-    const grp=new THREE.Group();
-    const add=(arr,crown,trunk,mat,trunkH)=>{
-      if(!arr.length)return;
-      /* shuffle so the first half is a fair sample (low quality draws half) */
-      for(let k=arr.length-1;k>0;k--){const j=(rnd()*(k+1))|0;[arr[k],arr[j]]=[arr[j],arr[k]];}
-      const cm=new THREE.InstancedMesh(crown,mat,arr.length),tm=new THREE.InstancedMesh(trunk,mTrunk,arr.length);
-      arr.forEach((t,k)=>{
-        const th=trunkH(t);
-        d.position.set(t.x,t.y,t.z);d.rotation.set(0,rnd()*6.28,0);
-        if(t.sp)d.scale.set(t.r,t.h/1.28,t.r);else d.scale.set(t.r,t.r*1.05,t.r);
-        if(!t.sp)d.position.y=t.y+t.h-t.r*2.75;
-        d.updateMatrix();cm.setMatrixAt(k,d.matrix);
-        col.setHSL(t.sp?0.3+rnd()*0.04:0.2+rnd()*0.07,0.35+rnd()*0.2,0.3+rnd()*0.22);cm.setColorAt(k,col);
-        d.position.y=t.y;d.scale.set(1,th,1);d.updateMatrix();tm.setMatrixAt(k,d.matrix);
-      });
-      cm.castShadow=tm.castShadow=true;cm.receiveShadow=true;
-      grp.add(cm);grp.add(tm);grp.userData.meshes=(grp.userData.meshes||[]).concat([cm,tm]);
-    };
-    add(L.sp,spruce,spruceTrunk,mSpruce,t=>t.h*0.3);
-    add(L.be,beech,beechTrunk,mBeech,t=>t.h-t.r*1.07);
-    const all=L.sp.concat(L.be);const c=new THREE.Vector3();all.forEach(t=>c.add(new THREE.Vector3(t.x,t.y,t.z)));if(all.length)c.divideScalar(all.length);
-    let rad=10;all.forEach(t=>{rad=Math.max(rad,Math.hypot(t.x-c.x,t.z-c.z)+t.h);});
-    grp.userData.c=c;grp.userData.sphere=new THREE.Sphere(c,rad);
-    scene.add(grp);chunks.push(grp);
-  });
+  buildForest(scene,lists);
 })();
-let treeHalf=false;
-export function setTreeQuality(high){treeHalf=!high;
-  chunks.forEach(g=>g.userData.meshes&&g.userData.meshes.forEach(m=>{m.userData.full=m.userData.full||m.count;m.count=high?m.userData.full:Math.ceil(m.userData.full/2);}));}
-/* hide chunks far from the camera; shadows only from nearby chunks */
-const frustum=new THREE.Frustum(),pm=new THREE.Matrix4();
-export function updateScenery(cam){
-  cam.updateMatrixWorld();pm.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse);frustum.setFromProjectionMatrix(pm);
-  for(const g of chunks){
-    const d=g.userData.c.distanceTo(cam.position);
-    /* nearby chunks stay on for their shadows even when out of view */
-    g.visible=d-g.userData.sphere.radius<1500&&(frustum.intersectsSphere(g.userData.sphere)||d<g.userData.sphere.radius+120);
-    const near=d<520;
-    if(g.userData.shadow!==near){g.userData.shadow=near;g.userData.meshes&&g.userData.meshes.forEach(m=>m.castShadow=near);}
-  }
-}
+export function setTreeQuality(high){setForestQuality(high===true?2:high===false?0:high);}
+export function updateScenery(cam,dt){updateForest(cam,dt);}
 
 /* ================= sun visibility =================
    March from the camera toward the sun; tree crowns, terrain and structures block it. A few rays
@@ -522,8 +549,8 @@ export function sunVisibility(p){
         const dx=x-q.x,dz=z-q.z,r2=dx*dx+dz*dz;if(r2>q.r*q.r*1.1)continue;
         const hy=(y-q.y)/q.h;
         let inside=false;
-        if(q.sp){if(hy>0.18&&hy<1){const rr=q.r*(1-(hy-0.18)/0.82)*0.95;inside=r2<rr*rr;}}
-        else{const cyy=q.y+q.h-q.r*1.07;const dy=(y-cyy)/(q.r*0.95);inside=r2/(q.r*q.r)+dy*dy<1;}
+        if(q.sp){if(hy>0.1&&hy<1){const rr=q.r*Math.pow(1-(hy-0.1)/0.9,0.85)*0.9;inside=r2<rr*rr;}}
+        else{const cyy=q.y+q.h*0.64;const dy=(y-cyy)/(q.h*0.34);inside=r2/(q.r*q.r)+dy*dy<1;}
         if(inside){
           /* leaves let light through in specks */
           const n=Math.sin(x*1.7+z*2.3+y*3.1)*Math.sin(x*0.9-z*1.3+y*0.7);

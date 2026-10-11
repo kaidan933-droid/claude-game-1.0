@@ -10,6 +10,10 @@ export const lin=h=>new THREE.Color(h).convertSRGBToLinear();
 export const hexStr=h=>'#'+h.toString(16).padStart(6,'0');
 export const fmt=t=>{if(t===null||t===undefined||!isFinite(t))return '-:--.---';const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(3);};
 
+/* quality: 0 low (phones, tablets), 1 medium, 2 high. Stored choice wins; otherwise touch devices start on low */
+export const QUALITY=(()=>{let q=null;try{const v=localStorage.getItem('ring-quality');q=v==='low'?0:v==='medium'?1:v==='high'?2:null;}catch(e){}
+  if(q===null){let touch=false;try{touch=window.matchMedia('(pointer: coarse)').matches;}catch(e){}q=touch?0:2;}return q;})();
+
 /* ---------------- renderer ----------------
    Materials render linear HDR (no tone mapping); post.js does exposure, glare, bloom, ACES and sRGB. */
 const canvas=document.getElementById('scene');
