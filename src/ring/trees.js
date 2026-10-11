@@ -165,8 +165,8 @@ const SPRUCE=spruceGeo(1),BEECH=beechGeo(1),SPRUCE_LO=spruceGeo(0.6),BEECH_LO=be
 function bakeImpostors(){
   const W=512,H=512,rt=new THREE.WebGLRenderTarget(W,H,{format:THREE.RGBAFormat});
   const sc=new THREE.Scene();
-  sc.add(new THREE.HemisphereLight(0xdfe8f0,0x4a5a3a,0.9));
-  const dl=new THREE.DirectionalLight(0xfff0dd,1.4);dl.position.set(0.6,0.8,1);sc.add(dl);
+  sc.add(new THREE.HemisphereLight(0xdfe8f0,0x4a5a3a,0.9*Math.PI));
+  const dl=new THREE.DirectionalLight(0xfff0dd,1.4*Math.PI);dl.position.set(0.6,0.8,1);sc.add(dl);
   const mat=new THREE.MeshLambertMaterial({map:atlas,alphaTest:0.42,side:THREE.DoubleSide});
   const cam=new THREE.OrthographicCamera(-1,1,1,0,-5,5);cam.position.set(0,0,2);cam.lookAt(0,0,0);
   const prev=renderer.getRenderTarget(),pc=new THREE.Color();renderer.getClearColor(pc);const pa=renderer.getClearAlpha();
@@ -195,7 +195,7 @@ const tmpO=new THREE.Object3D(),col=new THREE.Color();
 function inst(geo,mat,list,place,shadow){
   const m=new THREE.InstancedMesh(geo,mat,Math.max(1,list.length));
   list.forEach((t,k)=>{place(t,tmpO);tmpO.updateMatrix();m.setMatrixAt(k,tmpO.matrix);
-    col.setHSL(t.hue,t.sat,t.lit);m.setColorAt(k,col);});
+    col.setHSL(t.hue,t.sat,t.lit,THREE.LinearSRGBColorSpace);m.setColorAt(k,col);});
   m.count=list.length;
   if(shadow){m.castShadow=true;m.customDepthMaterial=depthNear;}
   m.receiveShadow=true;return m;

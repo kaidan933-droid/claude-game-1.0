@@ -10,13 +10,12 @@ import {setTreeQuality} from './scenery.js';
 /* Linear HDR scene -> bloom -> one final pass that adds the sun's glare (halo, starburst, lens
    ghosts, veiling glare, lit-up windscreen dirt in the cockpit), then exposure, ACES and sRGB. */
 const W=()=>window.innerWidth,H=()=>window.innerHeight;
-const gl2=renderer.capabilities.isWebGL2;
 /* 2 high (MSAA, bloom, big shadows), 1 medium, 0 low (phones: FXAA, no bloom, small shadows) */
 let q=QUALITY;
 const NAMES=['Low','Medium','High'];
 
 const rtOpts={type:THREE.HalfFloatType,format:THREE.RGBAFormat};
-function makeRT(){return gl2&&q===2?new THREE.WebGLMultisampleRenderTarget(W(),H(),rtOpts):new THREE.WebGLRenderTarget(W(),H(),rtOpts);}
+function makeRT(){return new THREE.WebGLRenderTarget(W(),H(),{...rtOpts,samples:q===2?4:0});}
 let composer,bloom,final,fxaa;
 
 /* windscreen grime: wiper arcs, smudges, bug splats, fine scratches */

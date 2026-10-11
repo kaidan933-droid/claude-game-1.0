@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {lin,tex,std} from './core.js';
 import {SPEC} from './sim/car.js';
-import {BufferGeometryUtils} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-const merge=g=>BufferGeometryUtils.mergeBufferGeometries(g);
+import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+const merge=g=>mergeGeometries(g);
 
 /* Procedural 992 GT3 RS, Weissach package (carbon hood and roof, black wing and mirrors).
    The side profile is traced from a reference photo (roofline, beltline, fender and haunch heights

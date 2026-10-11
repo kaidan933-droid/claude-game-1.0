@@ -47,7 +47,7 @@ DRIVERS[0].color=PAINTS[set.paint][1];player.color=DRIVERS[0].color;
 makeVisuals();
 function applyPaint(){
   const col=PAINTS[set.paint][1];DRIVERS[0].color=col;cars.forEach(e=>{if(e.human)e.color=col;});
-  vis.get(0).paint.color.set(col).convertSRGBToLinear();
+  vis.get(0).paint.color.set(col);
 }
 applyPaint();
 patchAll(scene);

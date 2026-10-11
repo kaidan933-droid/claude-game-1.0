@@ -4,7 +4,7 @@ import {rnd,maxAniso} from './core.js';
 /* Generated PBR surface sets: colour, normal (from a height field) and roughness maps.
    draw(ctx) paints colour; height(x,y) and rough(x,y) come from Float32 arrays filled by fill(). */
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
-function texFrom(c,srgb,repeat=true){const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=repeat?THREE.RepeatWrapping:THREE.ClampToEdgeWrapping;t.anisotropy=maxAniso;if(srgb)t.encoding=THREE.sRGBEncoding;return t;}
+function texFrom(c,srgb,repeat=true){const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=repeat?THREE.RepeatWrapping:THREE.ClampToEdgeWrapping;t.anisotropy=maxAniso;if(srgb)t.colorSpace=THREE.SRGBColorSpace;return t;}
 /* tileable value noise */
 function noiseField(w,h,cell,seed){
   const gw=Math.ceil(w/cell),gh=Math.ceil(h/cell),g=new Float32Array(gw*gh);for(let i=0;i<g.length;i++)g[i]=rnd();

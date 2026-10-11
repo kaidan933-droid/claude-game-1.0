@@ -1,8 +1,9 @@
 /* Keyboard state: W/Up throttle, S/Down brake, A/Left and D/Right steer, R reset */
 const down=new Set();
 const MAP={KeyW:'throttle',ArrowUp:'throttle',KeyS:'brake',ArrowDown:'brake',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',KeyR:'reset'};
+const typing=e=>e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA');
 window.addEventListener('keydown',e=>{
-  if(!MAP[e.code]||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(!MAP[e.code]||e.ctrlKey||e.metaKey||e.altKey||typing(e))return;
   e.preventDefault();down.add(MAP[e.code]);
 });
 window.addEventListener('keyup',e=>{if(MAP[e.code])down.delete(MAP[e.code]);});

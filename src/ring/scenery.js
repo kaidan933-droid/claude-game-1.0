@@ -3,7 +3,7 @@ import {rnd,clamp,sstep,lin,scene,tex,speckle,std,sunDir,QUALITY} from './core.j
 import {asphaltSet,kerbSet,grassSet,gravelSet} from './textures.js';
 import {T,RL,HW,CURB_W} from './sim/world.js';
 import {buildForest,updateForest,setForestQuality} from './trees.js';
-import {BufferGeometryUtils} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const {N,ds,LEN,X,Y,Z,NX,NZ,TX,TZ,BANK,CURB,BAR_L,BAR_R,GRAVEL_L,GRAVEL_R,mod}=T;
 
@@ -103,7 +103,7 @@ for(const [a,b] of ranges(i=>GRAVEL_L[i]===1,2))ribbon([i=>-BAR_L[i]+0.6,-HW-3.2
 /* ================= barriers ================= */
 /* double armco: two W-beams on posts; on the start/finish straight a concrete pit wall */
 const pitWall=i=>BAR_R[i]<HW+3;
-const armcoMat=new THREE.MeshStandardMaterial({map:armcoTex,metalness:0.8,roughness:0.38,side:THREE.DoubleSide,envMapIntensity:1.0});
+const armcoMat=new THREE.MeshStandardMaterial({map:armcoTex,metalness:0.65,roughness:0.5,side:THREE.DoubleSide,envMapIntensity:0.9});
 function wallStrip(side,prof,mat,pred,uLen,cast=true,step=1){
   /* prof: [[outward offset, height, v]] cross-section, side +1 right, -1 left */
   const rs=[];for(const [a,b] of ranges(pred)){for(let q=a;q<=b;q+=CHUNK)rs.push([q,Math.min(b,q+CHUNK-1)]);}
@@ -512,7 +512,7 @@ export const startLights=[];
   }
   drop.forEach(m=>m.parent&&m.parent.remove(m));
   for(const b of buckets.values()){
-    const m=new THREE.Mesh(BufferGeometryUtils.mergeBufferGeometries(b.geos),b.mat);
+    const m=new THREE.Mesh(mergeGeometries(b.geos),b.mat);
     m.castShadow=b.cast;m.receiveShadow=true;scene.add(m);
   }
 })();
