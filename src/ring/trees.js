@@ -205,43 +205,49 @@ export function buildForest(scene,chunkLists){
   const farMat=impostorMat();
   const crossS=crossGeo(0,0.5),crossB=crossGeo(0.5,1);
   const fern=underGeo(0,0.5,0.7),tuft=underGeo(0.5,1,0.5);
+  const sphereOf=pts=>{const c=new THREE.Vector3();pts.forEach(t=>c.add(new THREE.Vector3(t.x,t.y,t.z)));c.divideScalar(Math.max(1,pts.length));
+    let rad=10;pts.forEach(t=>{rad=Math.max(rad,Math.hypot(t.x-c.x,t.z-c.z)+(t.h||2));});return new THREE.Sphere(c,rad);};
   for(const L of chunkLists){
     const all=L.sp.concat(L.be);if(!all.length&&!L.ug.length)continue;
     all.forEach(t=>{t.rot=rnd()*6.28;t.hue=t.sp?0.27+rnd()*0.05:0.19+rnd()*0.07;t.sat=0.12+rnd()*0.15;t.lit=t.sp?0.48+rnd()*0.12:0.58+rnd()*0.14;t.lean=(rnd()-0.5)*0.05;});
+    /* trees by the track get full LOD; the forest further back is only ever drawn as impostors */
+    const eSp=L.sp.filter(t=>!t.deep),eBe=L.be.filter(t=>!t.deep),dSp=L.sp.filter(t=>t.deep),dBe=L.be.filter(t=>t.deep);
     const placeTree=(t,o)=>{o.position.set(t.x,t.y,t.z);o.rotation.set(t.lean,t.rot,t.lean*0.7);o.scale.set(t.r,t.h,t.r);};
-    const near=new THREE.Group(),far=new THREE.Group(),ug=new THREE.Group();
-    near.add(inst(SPRUCE,mNear,L.sp,placeTree,true));near.add(inst(BEECH,mNear,L.be,placeTree,true));
-    /* low-detail near trees for the medium band */
-    const mid=new THREE.Group();
-    mid.add(inst(SPRUCE_LO,mNear,L.sp,placeTree,false));mid.add(inst(BEECH_LO,mNear,L.be,placeTree,false));
     const placeFar=(t,o)=>{o.position.set(t.x,t.y,t.z);o.rotation.set(0,t.rot,0);o.scale.set(t.r*1.05,t.h*1.02,t.r*1.05);};
-    far.add(inst(crossS,farMat,L.sp,placeFar,false));far.add(inst(crossB,farMat,L.be,placeFar,false));
+    const near=new THREE.Group(),mid=new THREE.Group(),far=new THREE.Group(),deep=new THREE.Group(),ug=new THREE.Group();
+    near.add(inst(SPRUCE,mNear,eSp,placeTree,true));near.add(inst(BEECH,mNear,eBe,placeTree,true));
+    mid.add(inst(SPRUCE_LO,mNear,eSp,placeTree,true));mid.add(inst(BEECH_LO,mNear,eBe,placeTree,true));
+    far.add(inst(crossS,farMat,eSp,placeFar,false));far.add(inst(crossB,farMat,eBe,placeFar,false));
+    deep.add(inst(crossS,farMat,dSp,placeFar,false));deep.add(inst(crossB,farMat,dBe,placeFar,false));
     L.ug.forEach(u=>{u.hue=0.22+rnd()*0.06;u.sat=0.25+rnd()*0.2;u.lit=0.45+rnd()*0.2;});
     const ferns=L.ug.filter(u=>u.fern),tufts=L.ug.filter(u=>!u.fern);
     const placeU=(u,o)=>{o.position.set(u.x,u.y,u.z);o.rotation.set(0,u.rot,0);o.scale.set(u.s,u.s,u.s);};
     ug.add(inst(fern,mUnder,ferns,placeU,false));ug.add(inst(tuft,mUnder,tufts,placeU,false));
-    const c=new THREE.Vector3();const pts=all.length?all:L.ug;pts.forEach(t=>c.add(new THREE.Vector3(t.x,t.y,t.z)));c.divideScalar(pts.length);
-    let rad=10;pts.forEach(t=>{rad=Math.max(rad,Math.hypot(t.x-c.x,t.z-c.z)+(t.h||2));});
-    const g={near,mid,far,ug,c,sphere:new THREE.Sphere(c,rad)};
-    [near,mid,far,ug].forEach(x=>{x.visible=false;scene.add(x);});
+    const edge=eSp.concat(eBe);
+    const sphere=sphereOf(edge.length?edge:L.ug),dsphere=sphereOf(dSp.concat(dBe));
+    const g={near,mid,far,deep,ug,c:sphere.center,sphere,dsphere,hasDeep:dSp.length+dBe.length>0};
+    [near,mid,far,deep,ug].forEach(x=>{x.visible=false;scene.add(x);});
     chunks.push(g);
   }
 }
 /* quality: 2 high, 1 medium, 0 low */
 export function setForestQuality(q){
-  nearDist=[110,190,260][q];farDist=[1100,1400,1700][q];detailNear=q;
+  nearDist=[70,150,230][q];farDist=[1000,1300,1600][q];detailNear=q;
 }
 const frustum=new THREE.Frustum(),pm=new THREE.Matrix4();
 export function updateForest(cam,dt){
   windTime.value+=dt||0.016;
   cam.updateMatrixWorld();pm.multiplyMatrices(cam.projectionMatrix,cam.matrixWorldInverse);frustum.setFromProjectionMatrix(pm);
   for(const g of chunks){
-    const d=Math.max(0,g.c.distanceTo(cam.position)-g.sphere.radius*0.6);
+    const d=Math.max(0,g.c.distanceTo(cam.position)-g.sphere.radius*0.7);
     const inView=frustum.intersectsSphere(g.sphere);
-    const nearShadow=d<120;                     // keep casting shadows just behind the camera too
-    g.near.visible=(inView||nearShadow)&&d<nearDist*0.55;
-    g.mid.visible=inView&&!g.near.visible&&d<nearDist;
+    const nearShadow=d<60;                      // keep casting shadows just behind the camera too
+    /* low quality skips the full-detail band and starts at the lighter trees */
+    g.near.visible=detailNear>0&&(inView||nearShadow)&&d<nearDist*0.5;
+    g.mid.visible=!g.near.visible&&(inView||(detailNear===0&&nearShadow))&&d<nearDist;
     g.far.visible=inView&&d<farDist&&!g.mid.visible&&!g.near.visible;
-    g.ug.visible=inView&&d<(detailNear?160:80);
+    g.ug.visible=inView&&d<(detailNear?140:60);
+    g.deep.visible=g.hasDeep&&frustum.intersectsSphere(g.dsphere)&&g.dsphere.center.distanceTo(cam.position)-g.dsphere.radius<farDist;
+    const sh=d<70;g.near.children.forEach(m=>m.castShadow=sh);g.mid.children.forEach(m=>m.castShadow=sh&&detailNear===0);
   }
 }

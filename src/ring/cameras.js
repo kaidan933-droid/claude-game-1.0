@@ -92,7 +92,7 @@ export function updateCamera(dt,e,vis){
   /* hide our own roof and cabin from inside */
   const inside=mode==='cockpit';
   vis.cab.visible=!inside;vis.shell.visible=true;
-  vis.inner.visible=inside;
+  vis.inner.visible=inside;if(vis.interior)vis.interior.visible=inside;
 }
 document.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.cam)));
 setTimeout(()=>setMode(mode),0);

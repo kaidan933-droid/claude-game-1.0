@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import {camera,scene,sky,sun,sunDir,fogSun,patchAll,clamp,hexStr,fmt,skyUniforms,renderer} from './core.js';
+import {camera,scene,sky,sun,sunDir,fogSun,patchAll,clamp,hexStr,fmt,skyUniforms,renderer,QUALITY} from './core.js';
 import {updateScenery,sunVisibility,startLights} from './scenery.js';
 import {T,cars,DRIVERS,setupCars,resetCars,step,race,DT,standings,resetToTrack,shift} from './sim/world.js';
 import {buildCar} from './carmodel.js';
+import {loadCarModel,buildCarGLB} from './carglb.js';
 import {updateCamera,cycle,camMode,setLookBack,snap} from './cameras.js';
 import {render} from './post.js';
 import {updateEffects,clearEffects} from './effects.js';
@@ -50,6 +51,15 @@ function applyPaint(){
 }
 applyPaint();
 patchAll(scene);
+/* a real GT3 RS model, if one has been added to public/models, replaces the built-in car */
+loadCarModel().then(tpl=>{
+  const el=document.getElementById('carModel');
+  if(!tpl){if(el)el.textContent='Car: built-in GT3 RS model. Drop a gt3rs.glb into public/models for a photo-real one.';return;}
+  for(const e of cars){const old=vis.get(e.id);if(old)scene.remove(old.root);
+    const v=buildCarGLB(tpl,e.color);scene.add(v.root);patchAll(v.root);vis.set(e.id,v);}
+  applyPaint();
+  if(el)el.textContent='Car: loaded models/gt3rs.glb';
+}).catch(err=>{console.warn('car model failed to load, using the built-in one',err);});
 
 /* ---------------- race flow ---------------- */
 let state='menu',paused=false,lightT=0,goAt=0,resultsT=-1;
@@ -80,6 +90,7 @@ $('pause').addEventListener('click',()=>{if(state==='race')setPaused(!paused);})
 on('pause',()=>{if(state==='race'&&$('results').hidden)setPaused(!paused);});
 on('enter',()=>{if(state==='menu')newRace();else if(!$('results').hidden)newRace();});
 on('camera',cycle);
+document.getElementById('camBtn')?.addEventListener('click',cycle);
 on('reset',()=>{if(state==='race'&&!paused&&race.state!=='grid'){resetToTrack(player,0);resetInput();flash('Back on track',false,1.2);}});
 /* manual shifting on the arrows (and E/Q, paddles); shifting while in auto switches to manual */
 function manual(){const c=player.car;if(c.autoShift){c.autoShift=false;set.auto=0;save();syncMenu();flash('Manual gearbox: up / down arrows',false,1.6);}}
@@ -121,8 +132,8 @@ function syncCar(e,dt){
   v.body.position.y=clamp(-(c.lf-1)*0.03,-0.04,0.05)+Math.sin(performance.now()*0.05+e.id)*(c.wheels.some(w=>w.surf===1)?0.006:0)+(c.wheels.some(w=>w.surf>=2)?Math.sin(performance.now()*0.03)*0.012*Math.min(1,c.speed/10):0);
   v.wheels.forEach((W,k)=>{
     const w=c.wheels[k];
-    W.spin.rotation.x+=(W.left?1:-1)*w.w*dt;
-    if(W.front)W.g.rotation.y=(W.left?0:Math.PI)-w.steer;
+    if(W.glb){W.spin.rotation.x+=w.w*dt;if(W.front)W.g.rotation.y=-w.steer;}
+    else{W.spin.rotation.x+=(W.left?1:-1)*w.w*dt;if(W.front)W.g.rotation.y=(W.left?0:Math.PI)-w.steer;}
     W.disc.material.emissiveIntensity=clamp((w.brakeTemp-380)/350,0,1)*2.5;
   });
   v.tail.emissiveIntensity=c.brk>0.05?7:0.8;
@@ -130,8 +141,10 @@ function syncCar(e,dt){
   v.steeringWheel.rotation.z=-c.steer*11;
   /* cheap LOD: brake parts and the steering wheel only up close */
   const dc=camera.position.distanceToSquared(v.root.position),nearCar=dc<60*60;
-  if(v.lodNear!==nearCar){v.lodNear=nearCar;v.wheels.forEach(W=>{W.disc.visible=W.cal.visible=nearCar;});}
-  v.steeringWheel.visible=e===player&&camMode()==='cockpit';
+  if(v.lodNear!==nearCar){v.lodNear=nearCar;v.wheels.forEach(W=>{W.disc.visible=W.cal.visible=nearCar;});
+    /* on low quality only nearby cars cast shadows */
+    if(QUALITY===0&&e!==player)v.root.traverse(o=>{if(o.isMesh)o.castShadow=nearCar;});}
+
 }
 
 /* ---------------- loop ---------------- */

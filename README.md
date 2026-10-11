@@ -15,11 +15,22 @@ A 10-car GT3 RS race on a 12.6 km circuit inspired by the Nürburgring Nordschle
 You start 6th of 10 identical GT3 RSs. Pick 1-3 laps (a lap takes about 4:40), opponent level (Amateur / Pro / Alien),
 PDK auto or manual, TC, ABS, steering help and paint on the setup screen. Standing start: five red lights, then lights out.
 
-Controls: `W`/`Up` throttle, `S`/`Down` brake (hold at a standstill for reverse), `A`/`D` or `Left`/`Right` steer,
-`E`/`Shift` upshift, `Q`/`Ctrl` downshift, `R` reset to track, `C` camera, `B` look back, `T` traction control,
-`Y` ABS, `G` gearbox auto/manual, `H` steering help, `M` mute, `P`/`Esc` pause.
-Gamepad: RT/LT throttle and brake, left stick steers, bumpers shift, Y camera, X reset. Touch: bottom corners are
-brake/throttle, top halves steer.
+Controls: `W` throttle, `S` brake (hold at a standstill for reverse), `A`/`D` or `Left`/`Right` steer,
+`Up`/`Down` arrows shift gears (pressing them in PDK auto switches to manual; `E`/`Q` also work), `R` reset to track,
+`C` camera, `B` look back, `T` traction control, `Y` ABS, `G` gearbox auto/manual, `H` steering help, `M` mute,
+`P`/`Esc` pause.
+Gamepad: RT/LT throttle and brake, left stick steers, bumpers shift, Y camera, X reset. Phones and tablets get
+on-screen steer, brake, gas and +/- shift buttons.
+
+Quality: High (PCs: MSAA, bloom, 4096 shadows), Medium, Low (phones: FXAA, no bloom, lighter trees). Touch devices
+start on Low; the Quality button cycles them.
+
+## The car
+
+The built-in GT3 RS is generated in code from a side-profile reference photo of a 992 GT3 RS (Ice Grey, Weissach
+carbon parts, swan-neck wing, 10-spoke centre-lock wheels, yellow ceramic calipers). For a photo-real car, drop a
+model at `public/models/gt3rs.glb`: the game fits it to the physics car, finds the wheels and the paint, and uses it for
+all ten cars. See `public/models/README.md` for naming and the optional `gt3rs.json` overrides.
 
 ## The track
 
@@ -53,8 +64,11 @@ through tree crowns, terrain and buildings, so it strobes through the forest.
 
     src/ring/main.js       game loop, setup / pause / results, car visuals
     src/ring/core.js       renderer, sky, sun, fog that glows toward the sun, helpers
-    src/ring/scenery.js    road, curbs, armco, terrain, forest, grandstands, bridges, signs, sun visibility test
-    src/ring/carmodel.js   procedural GT3 RS model
+    src/ring/scenery.js    road, kerbs, armco, terrain, grandstands, bridges, signs, braking boards, marshal posts, sun visibility test
+    src/ring/carmodel.js   procedural GT3 RS model (profile traced from a reference photo)
+    src/ring/carglb.js     optional drop-in .glb car model loader
+    src/ring/trees.js      branch-card spruce and beech, impostor billboards, undergrowth, wind
+    src/ring/textures.js   generated PBR asphalt, kerb, grass and gravel textures
     src/ring/cameras.js    chase / close / bonnet / cockpit / TV / heli
     src/ring/post.js       bloom, glare, exposure, tone mapping, quality toggle
     src/ring/effects.js    skid marks, tyre smoke, dust, sparks

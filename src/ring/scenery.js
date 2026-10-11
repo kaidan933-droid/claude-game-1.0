@@ -3,6 +3,7 @@ import {rnd,clamp,sstep,lin,scene,tex,speckle,std,sunDir,QUALITY} from './core.j
 import {asphaltSet,kerbSet,grassSet,gravelSet} from './textures.js';
 import {T,RL,HW,CURB_W} from './sim/world.js';
 import {buildForest,updateForest,setForestQuality} from './trees.js';
+import {BufferGeometryUtils} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const {N,ds,LEN,X,Y,Z,NX,NZ,TX,TZ,BANK,CURB,BAR_L,BAR_R,GRAVEL_L,GRAVEL_R,mod}=T;
 
@@ -15,6 +16,14 @@ const armcoTex=tex(16,128,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);
   [[0,'#9aa0a6'],[.1,'#dfe3e7'],[.22,'#80868c'],[.34,'#d6dade'],[.46,'#868c92'],[.54,'#9aa0a6'],[.6,'#dfe3e7'],[.72,'#80868c'],[.84,'#d6dade'],[.96,'#868c92'],[1,'#9aa0a6']].forEach(s=>gr.addColorStop(s[0],s[1]));
   g.fillStyle=gr;g.fillRect(0,0,w,h);speckle(g,w,h,['rgba(90,70,50,.25)'],80,2);});
 const hedgeTex=tex(256,128,(g,w,h)=>{g.fillStyle='#2c3f1e';g.fillRect(0,0,w,h);speckle(g,w,h,['#3a5228','#22331a','#4a6332','#1c2a14','#567038'],14000,3.2);});
+
+/* InstancedMesh skips frustum culling in three r128; give it a real bounding sphere so it can be culled */
+function cullable(m){
+  const v=new THREE.Vector3(),M=new THREE.Matrix4(),box=new THREE.Box3();
+  for(let k=0;k<m.count;k++){m.getMatrixAt(k,M);v.setFromMatrixPosition(M);box.expandByPoint(v);}
+  m.geometry=m.geometry.clone();m.geometry.boundingSphere=box.getBoundingSphere(new THREE.Sphere());m.geometry.boundingSphere.radius+=4;
+  m.frustumCulled=true;return m;
+}
 
 /* ================= ribbon builder ================= */
 /* A strip following the track from sample i0 to i1 (inclusive, wrapping), with vertices at the given
@@ -95,26 +104,27 @@ for(const [a,b] of ranges(i=>GRAVEL_L[i]===1,2))ribbon([i=>-BAR_L[i]+0.6,-HW-3.2
 /* double armco: two W-beams on posts; on the start/finish straight a concrete pit wall */
 const pitWall=i=>BAR_R[i]<HW+3;
 const armcoMat=new THREE.MeshStandardMaterial({map:armcoTex,metalness:0.8,roughness:0.38,side:THREE.DoubleSide,envMapIntensity:1.0});
-function wallStrip(side,prof,mat,pred,uLen,cast=true){
+function wallStrip(side,prof,mat,pred,uLen,cast=true,step=1){
   /* prof: [[outward offset, height, v]] cross-section, side +1 right, -1 left */
   const rs=[];for(const [a,b] of ranges(pred)){for(let q=a;q<=b;q+=CHUNK)rs.push([q,Math.min(b,q+CHUNK-1)]);}
   for(const [a,b] of rs){
     const pos=[],uv=[],idx=[],n=prof.length;
-    for(let j=a;j<=b+1;j++){
+    const rows=[];for(let j=a;j<b+1;j+=step)rows.push(j);rows.push(b+1);
+    rows.forEach((j,r)=>{
       const i=mod(j),bar=side>0?BAR_R[i]:BAR_L[i];
       for(let k=0;k<n;k++){
         const o=side*(bar+prof[k][0]);
         pos.push(X[i]+NX[i]*o,Y[i]+o*BANK[i]+prof[k][1],Z[i]+NZ[i]*o);uv.push(j*ds/uLen,prof[k][2]);
-        if(j<=b&&k<n-1){const q=(j-a)*n+k;if(side>0)idx.push(q,q+1,q+n,q+1,q+n+1,q+n);else idx.push(q,q+n,q+1,q+1,q+n,q+n+1);}
+        if(r<rows.length-1&&k<n-1){const q=r*n+k;if(side>0)idx.push(q,q+1,q+n,q+1,q+n+1,q+n);else idx.push(q,q+n,q+1,q+1,q+n,q+n+1);}
       }
-    }
+    });
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
     g.setIndex(idx);g.computeVertexNormals();const m=new THREE.Mesh(g,mat);m.castShadow=cast;m.receiveShadow=true;scene.add(m);
   }
 }
 const W_BEAM=[[0.05,0.28,0],[0,0.36,0.17],[0.06,0.44,0.34],[0,0.52,0.5],[0.06,0.6,0.66],[0,0.68,0.83],[0.05,0.76,1]];
-wallStrip(1,W_BEAM,armcoMat,i=>!pitWall(i),6);
-wallStrip(-1,W_BEAM,armcoMat,()=>true,6);
+wallStrip(1,W_BEAM,armcoMat,i=>!pitWall(i),6,true,2);
+wallStrip(-1,W_BEAM,armcoMat,()=>true,6,true,2);
 const pitMat=new THREE.MeshStandardMaterial({map:concreteTex,roughness:0.9});
 wallStrip(1,[[0,-0.3,0],[0,1.05,0.4],[0.35,1.1,0.45],[0.35,-0.3,0.8]],pitMat,pitWall,8);
 /* posts */
@@ -125,16 +135,19 @@ wallStrip(1,[[0,-0.3,0],[0,1.05,0.4],[0.35,1.1,0.45],[0.35,-0.3,0.8]],pitMat,pit
     for(const side of [-1,1]){if(side>0&&pitWall(i))continue;const bar=(side>0?BAR_R[i]:BAR_L[i])+0.12,o=side*bar;
       pts.push([X[i]+NX[i]*o,Y[i]+o*BANK[i],Z[i]+NZ[i]*o,Math.atan2(TX[i],TZ[i])]);}
   }
-  const m=new THREE.InstancedMesh(geo,std(0x5d6268,0.5,0.7),pts.length),d=new THREE.Object3D();
-  pts.forEach((p,k)=>{d.position.set(p[0],p[1],p[2]);d.rotation.set(0,p[3],0);d.updateMatrix();m.setMatrixAt(k,d.matrix);});
-  m.receiveShadow=true;scene.add(m);
+  const mat=std(0x5d6268,0.5,0.7),d=new THREE.Object3D();
+  for(let a=0;a<pts.length;a+=300){
+    const part=pts.slice(a,a+300),m=new THREE.InstancedMesh(geo,mat,part.length);
+    part.forEach((p,k)=>{d.position.set(p[0],p[1],p[2]);d.rotation.set(0,p[3],0);d.updateMatrix();m.setMatrixAt(k,d.matrix);});
+    m.receiveShadow=true;scene.add(cullable(m));
+  }
 })();
 /* hedges behind the armco on long stretches */
 const hedgeMat=new THREE.MeshStandardMaterial({map:hedgeTex,roughness:1});
 const hedgeOn=i=>((i*ds/260)|0)%3!==0&&!pitWall(i);
 for(const side of [-1,1]){
   const h=i=>1.6+0.6*Math.sin(i*0.05+side)+0.4*Math.sin(i*0.17);
-  wallStrip(side,[[2.2,-0.4,0],[2.3,1.2,0.6],[3.4,1.9,1],[4.4,1.2,0.6],[4.6,-0.4,0]],hedgeMat,i=>hedgeOn(i)&&!(side<0&&i>N-170)&&!(side<0&&i<140),5);
+  wallStrip(side,[[2.2,-0.4,0],[2.3,1.2,0.6],[3.4,1.9,1],[4.4,1.2,0.6],[4.6,-0.4,0]],hedgeMat,i=>hedgeOn(i)&&!(side<0&&i>N-170)&&!(side<0&&i<140),5,true,3);
 }
 
 /* ================= terrain ================= */
@@ -283,7 +296,7 @@ export const keepClear=[];
 function frameAt(s,off){
   const i=T.idx(s),o=off;
   const g=new THREE.Group();g.position.set(X[i]+NX[i]*o,Y[i]+o*BANK[i],Z[i]+NZ[i]*o);
-  g.rotation.y=Math.atan2(TX[i],TZ[i]);scene.add(g);return g;   // local +z along the track, +x to the left
+  g.rotation.y=Math.atan2(TX[i],TZ[i]);g.userData.static=true;scene.add(g);return g;   // local +z along the track, +x to the left
 }
 function box(w,h,d,mat,x,y,z,parent,cast=true){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.castShadow=cast;m.receiveShadow=true;parent.add(m);return m;}
 function addOcc(obj){obj.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(obj);occluders.push([b.min.x,b.min.y,b.min.z,b.max.x,b.max.y,b.max.z]);}
@@ -295,7 +308,7 @@ function crowd(parent,n,place){
   for(let j=0;j<n;j++){const p=place(j);if(!p)continue;
     d.position.set(p[0],p[1]+0.4,p[2]);d.rotation.set(0,(p[3]||0)+(rnd()-.5)*0.6,0);d.updateMatrix();body.setMatrixAt(k,d.matrix);body.setColorAt(k,lin(crowdCols[(rnd()*crowdCols.length)|0]));
     d.position.y+=0.52;d.updateMatrix();head.setMatrixAt(k,d.matrix);head.setColorAt(k,lin([0xe6b896,0xc48a64,0x8d5a3b,0xf0caa8,0x5c3a26][(rnd()*5)|0]));k++;}
-  body.count=head.count=k;body.castShadow=true;parent.add(body);parent.add(head);
+  body.count=head.count=k;body.castShadow=true;parent.add(cullable(body));parent.add(cullable(head));
 }
 function grandstand(s,side,len,rows,roof=true){
   const bar=side>0?T.lerp(BAR_L,s):T.lerp(BAR_R,s);
@@ -444,15 +457,14 @@ export const startLights=[];
     box(0.04,1.4,0.04,post,-0.1,2.0,0.4,g);
   }
   /* tyre walls in front of the armco on the outside of the hairpins */
-  const pts=[];
-  for(const c of T.corners){if(c.kind!=='hairpin')continue;const side=c.sg>0?-1:1;
+  const geo=new THREE.TorusGeometry(0.24,0.1,4,8);geo.rotateX(Math.PI/2);geo.translate(0,0.12,0);
+  const tmat=std(0x18181a,0.9),d=new THREE.Object3D(),cc=new THREE.Color();
+  for(const c of T.corners){if(c.kind!=='hairpin')continue;const side=c.sg>0?-1:1,pts=[];
     for(let i=c.i0-10;i<=c.i1+25;i++){const ii=mod(i),bar=(side>0?BAR_R[ii]:BAR_L[ii])-0.32;
-      for(let q=0;q<3;q++){const o=side*bar,a=q*0.66;const x=X[ii]+NX[ii]*o+TX[ii]*a,z=Z[ii]+NZ[ii]*o+TZ[ii]*a;for(let lvl=0;lvl<3;lvl++)pts.push([x,Y[ii]+o*BANK[ii]+lvl*0.27,z]);}}}
-  if(pts.length){
-    const geo=new THREE.TorusGeometry(0.24,0.1,6,10);geo.rotateX(Math.PI/2);geo.translate(0,0.12,0);
-    const m=new THREE.InstancedMesh(geo,std(0x18181a,0.9),pts.length),d=new THREE.Object3D(),cc=new THREE.Color();
+      for(let q=0;q<3;q++){const o=side*bar,a=q*0.66;const x=X[ii]+NX[ii]*o+TX[ii]*a,z=Z[ii]+NZ[ii]*o+TZ[ii]*a;for(let lvl=0;lvl<3;lvl++)pts.push([x,Y[ii]+o*BANK[ii]+lvl*0.27,z]);}}
+    const m=new THREE.InstancedMesh(geo,tmat,pts.length);
     pts.forEach((p,k)=>{d.position.set(p[0],p[1],p[2]);d.updateMatrix();m.setMatrixAt(k,d.matrix);cc.set(((k/3|0)%8)<2?0xe8e6e1:0x18181a);m.setColorAt(k,cc);});
-    m.receiveShadow=true;m.castShadow=true;scene.add(m);
+    m.receiveShadow=true;m.castShadow=true;scene.add(cullable(m));
   }
 })();
 /* painted graffiti on the asphalt, Nordschleife-style */
@@ -474,7 +486,34 @@ export const startLights=[];
     const m=new THREE.Mesh(g,mat);
     const o=(rnd()-0.5)*4;m.position.set(X[i]+NX[i]*o,Y[i]+o*BANK[i]+0.015,Z[i]+NZ[i]*o);
     m.rotation.set(-Math.PI/2,0,-Math.atan2(TZ[i],TX[i])+(rnd()<0.5?0:Math.PI));
-    m.receiveShadow=true;scene.add(m);
+    m.receiveShadow=true;m.userData.static=true;scene.add(m);
+  }
+})();
+
+/* ================= merge static props =================
+   Signs, boards, huts, bridges and stands are built from many small meshes; merge them per
+   material within 500 m cells so they cost a few draw calls and still get frustum-culled. */
+(function mergeStatic(){
+  scene.updateMatrixWorld(true);
+  const buckets=new Map(),drop=[];
+  const take=m=>{
+    if(!m.isMesh||m.isInstancedMesh||Array.isArray(m.material)||!m.geometry.index)return;
+    const p=new THREE.Vector3().setFromMatrixPosition(m.matrixWorld);
+    const key=m.material.uuid+'|'+Math.floor(p.x/500)+'|'+Math.floor(p.z/500);
+    const g=m.geometry.clone().applyMatrix4(m.matrixWorld);
+    for(const k of Object.keys(g.attributes))if(!['position','normal','uv'].includes(k))g.deleteAttribute(k);
+    if(!g.attributes.uv)g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2));
+    let b=buckets.get(key);if(!b)buckets.set(key,b={mat:m.material,geos:[],cast:false});
+    b.geos.push(g);b.cast=b.cast||m.castShadow;drop.push(m);
+  };
+  for(const o of [...scene.children]){
+    if(!o.userData.static)continue;
+    if(o.isMesh)take(o);else o.traverse(take);
+  }
+  drop.forEach(m=>m.parent&&m.parent.remove(m));
+  for(const b of buckets.values()){
+    const m=new THREE.Mesh(BufferGeometryUtils.mergeBufferGeometries(b.geos),b.mat);
+    m.castShadow=b.cast;m.receiveShadow=true;scene.add(m);
   }
 })();
 
@@ -491,7 +530,7 @@ export function treesNear(x,z){return treeGrid.get(tkey(x,z));}
   const clearOk=(x,z)=>{for(const k of keepClear){const dx=x-k[0],dz=z-k[1];if(dx*dx+dz*dz<k[2]*k[2])return false;}return true;};
   const addTree=(i,x,z,isSpruce,far)=>{
     const h=isSpruce?(far?17:15)+rnd()*15:13+rnd()*9,r=isSpruce?h*(0.14+rnd()*0.03):h*(0.24+rnd()*0.06);
-    const t={x,z,y:groundAt(x,z)-0.3,h,r,sp:isSpruce,i};
+    const t={x,z,y:groundAt(x,z)-0.3,h,r,sp:isSpruce,i,deep:far};
     lists[Math.floor(i/CH)][isSpruce?'sp':'be'].push(t);gridAdd(t);
   };
   for(let i=0;i<N;i+=3){

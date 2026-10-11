@@ -98,7 +98,7 @@ const range=(a,b,step)=>{const o=[];for(let z=a;z<b-1e-6;z+=step)o.push(z);o.pus
 
 function bodyGeometry(){
   const {g,groups}=loft(range(TAIL,NOSE,0.035),lowerRing,(z,s,c,n)=>{
-    if(c.y<0.235||(z>NOSE-0.3&&c.y<0.3)||(z<TAIL+0.25&&c.y<0.42))return 'trim';
+    if(c.y<0.235||(z>NOSE-0.3&&c.y<0.3)||(z<TAIL+0.2&&c.y<0.33))return 'trim';
     if(z>1.0&&z<NOSE-0.2&&Math.abs(c.x)<pl(HALF_W,z)*0.5&&Math.abs(n.y)>0.6&&c.y>0.6)return 'carbon';
     return 'paint';
   },{caps:true,arches:true});
@@ -163,8 +163,10 @@ const barrelMat=std(0x1a1b1d,0.6,0.3,{side:THREE.DoubleSide,envMapIntensity:0.3}
 function makeWheel(r,w,front,caliperCol){
   const g=new THREE.Group();   // steer pivot
   const spin=new THREE.Group();g.add(spin);
-  const t=new THREE.Mesh(tyreGeo(r,w),tyreMat);t.castShadow=true;spin.add(t);
-  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(r-0.105,r-0.105,w*0.9,32,1,true),barrelMat);barrel.rotation.z=Math.PI/2;spin.add(barrel);
+  /* tyre and the rim barrel behind the spokes in one mesh */
+  const bg=new THREE.CylinderGeometry(r-0.105,r-0.105,w*0.9,32,1,true);bg.rotateZ(Math.PI/2);
+  const tg=tyreGeo(r,w);
+  const t=new THREE.Mesh(merge([tg.toNonIndexed(),bg.toNonIndexed()]),tyreMat);t.castShadow=true;spin.add(t);
   const face=new THREE.Mesh(new THREE.CircleGeometry(r-0.1,48),rimMat);face.rotation.y=Math.PI/2;face.position.x=w/2-0.04;spin.add(face);
   /* disc and caliper don't spin */
   const disc=new THREE.Mesh(new THREE.CylinderGeometry(r-0.135,r-0.135,0.034,36),discMat.clone());disc.rotation.z=Math.PI/2;disc.position.x=w/2-0.15;g.add(disc);
@@ -251,31 +253,34 @@ export function buildCar(color,num,opts={}){
   const wy=1.3,wz=TAIL+0.22;
   const wingMain=add(B(1.86,0.035,0.44),carbon,0,wy,wz,0.1,0,0);
   const flap=add(B(1.84,0.028,0.22),carbon,0,wy+0.085,wz-0.2,0.42,0,0);
-  [-1,1].forEach(s=>{add(B(0.018,0.3,0.74),carbon,s*0.94,wy+0.01,wz-0.06);
+  [-1,1].forEach(s=>{add(B(0.016,0.22,0.52),carbon,s*0.94,wy+0.02,wz-0.08);
     tube([[s*0.3,pl(CENTRE,wz+0.55)+0.01,wz+0.55],[s*0.3,wy-0.05,wz+0.42],[s*0.3,wy+0.12,wz+0.22],[s*0.3,wy+0.06,wz+0.02]],0.022,carbon);});
   add(B(0.012,0.2,0.85),paint,0,pl(CAB_TOP,TAIL+0.75)+0.07,TAIL+0.75,-0.25,0,0);
   const tail=new THREE.MeshStandardMaterial({color:lin(0x3a0404),emissive:new THREE.Color(1,0.04,0.02),emissiveIntensity:0.6,roughness:0.25});
   add(B(1.64,0.035,0.03),tail,0,0.86,TAIL+0.08,0,0,0,false);
   [-1,1].forEach(s=>add(B(0.14,0.05,0.03),tail,s*0.8,0.84,TAIL+0.1,0,s*-0.45,0,false));
   for(let k=-3;k<=3;k++)add(B(0.16,0.012,0.04),trimMat,k*0.2,0.74,TAIL+0.06,0,0,0,false);
-  add(B(1.36,0.1,0.3),trimMat,0,0.24,TAIL+0.24);
-  for(let k=-3;k<=3;k++)add(B(0.012,0.12,0.28),carbon,k*0.18,0.2,TAIL+0.22,0,0,0,false);
+  /* diffuser fins under the bumper */
+  for(let k=-3;k<=3;k++)add(B(0.012,0.1,0.32),carbon,k*0.18,0.2,TAIL+0.24,0.25,0,0,false);
   const ti=std(0x8d8577,0.25,0.9,{side:THREE.DoubleSide});
   [-1,1].forEach(s=>add(new THREE.CylinderGeometry(0.058,0.058,0.12,18,1,true),ti,s*0.11,0.33,TAIL+0.05,Math.PI/2,0,0));
-  /* interior: dash, wheel, bucket seats, cage */
+  /* interior: dash, wheel, bucket seats, cage (own group, only shown in the cockpit view) */
+  const interior=new THREE.Group();body.add(interior);
+  const addI=(geo,mat,x,y,z,rx=0)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.rotation.set(rx,0,0);interior.add(m);return m;};
   const dash=std(0x1a1a1c,0.8);
-  add(B(1.5,0.14,0.42),dash,0,0.8,CAB_Z0-0.32,0.15,0,0,false);
-  add(B(0.36,0.09,0.16),dash,0.36,0.9,CAB_Z0-0.44,0.35,0,0,false);
+  addI(B(1.5,0.14,0.42),dash,0,0.8,CAB_Z0-0.32,0.15);
+  addI(B(0.36,0.09,0.16),dash,0.36,0.9,CAB_Z0-0.44,0.35);
   const gauge=new THREE.MeshStandardMaterial({color:0x000000,emissive:new THREE.Color(0.9,0.75,0.45),emissiveIntensity:0.25,roughness:0.4});
-  add(B(0.3,0.08,0.01),gauge,0.36,0.88,CAB_Z0-0.525,-0.35,0,0,false);
-  const wheel=new THREE.Group();wheel.position.set(0.36,0.84,CAB_Z0-0.62);wheel.rotation.x=-0.35;body.add(wheel);
+  addI(B(0.3,0.08,0.01),gauge,0.36,0.88,CAB_Z0-0.525,-0.35);
+  const wheel=new THREE.Group();wheel.position.set(0.36,0.84,CAB_Z0-0.62);wheel.rotation.x=-0.35;interior.add(wheel);
   wheel.add(new THREE.Mesh(new THREE.TorusGeometry(0.16,0.017,8,28),std(0x1c1c1e,0.7)));
   wheel.add(new THREE.Mesh(new THREE.BoxGeometry(0.32,0.05,0.03),std(0x2a2a2d,0.6)));
   const mark=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.025,0.025),std(0xf2c230,0.5));mark.position.y=0.16;wheel.add(mark);
-  [-1,1].forEach(s=>{add(B(0.5,0.08,0.55),dash,s*0.36,0.34,-0.6,0,0,0,false);add(B(0.5,0.7,0.1),dash,s*0.36,0.66,-0.88,-0.15,0,0,false);});
+  [-1,1].forEach(s=>{addI(B(0.5,0.08,0.55),dash,s*0.36,0.34,-0.6);addI(B(0.5,0.7,0.1),dash,s*0.36,0.66,-0.88,-0.15);});
   const cage=std(0x2a2a2d,0.5,0.6);
-  [-1,1].forEach(s=>{add(B(0.03,0.03,1.0),cage,s*0.54,1.07,-0.6,0.1,0,0,false);add(B(0.035,0.5,0.035),cage,s*0.58,0.92,-1.0,0,0,0,false);});
-  add(B(1.06,0.03,0.03),cage,0,1.06,-1.0,0,0,0,false);
+  [-1,1].forEach(s=>{addI(B(0.03,0.03,1.0),cage,s*0.54,1.07,-0.6,0.1);addI(B(0.035,0.5,0.035),cage,s*0.58,0.92,-1.0);});
+  addI(B(1.06,0.03,0.03),cage,0,1.06,-1.0);
+  interior.visible=false;
   /* wheels */
   const calCol=opts.caliper||0xf2c230;
   const wheels=[];
@@ -291,7 +296,7 @@ export function buildCar(color,num,opts={}){
   const ao=new THREE.Mesh(new THREE.PlaneGeometry(2.3,5.0),new THREE.MeshBasicMaterial({map:aoTex,transparent:true,depthWrite:false,opacity:0.85}));
   ao.rotation.x=-Math.PI/2;ao.position.y=0.02;ao.position.z=(NOSE+TAIL)/2;root.add(ao);
   /* merge every static body part per material to keep draw calls down */
-  const keep=new Set([shell,cab,inner,flap,wheel]);
+  const keep=new Set([shell,cab,inner,flap,interior]);
   const byMat=new Map();
   for(const m of [...body.children]){
     if(keep.has(m)||!m.isMesh||Array.isArray(m.material))continue;
@@ -303,7 +308,7 @@ export function buildCar(color,num,opts={}){
     byMat.get(m.material).push(g);body.remove(m);
   }
   for(const [mat,gs] of byMat){const mm=new THREE.Mesh(merge(gs),mat);mm.castShadow=!mat.transparent;body.add(mm);}
-  return {root,body,wheels,paint,tail,steeringWheel:wheel,wingFlap:flap,wingMain,cab,inner,shell,discs:wheels.map(w=>w.disc)};
+  return {root,body,wheels,paint,tail,steeringWheel:wheel,interior,wingFlap:flap,wingMain,cab,inner,shell,discs:wheels.map(w=>w.disc)};
 }
 const aoTex=tex(64,128,(g,w,h)=>{const gr=g.createRadialGradient(w/2,h/2,4,w/2,h/2,w*0.7);gr.addColorStop(0,'rgba(0,0,0,0.85)');gr.addColorStop(0.6,'rgba(0,0,0,0.45)');gr.addColorStop(1,'rgba(0,0,0,0)');
   g.save();g.scale(1,2);g.fillStyle=gr;g.fillRect(0,0,w,h/2);g.restore();},false);

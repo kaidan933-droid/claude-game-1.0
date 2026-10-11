@@ -150,14 +150,23 @@ legend{font-size:12px;color:var(--muted);margin-bottom:4px;padding:0}
 .touch{display:none}
 @media (pointer:coarse){
   .touch{display:block}
-  .tk{position:absolute;pointer-events:auto;border:1px solid var(--edge);background:rgba(12,16,14,.42);color:var(--ink);font-size:18px;font-weight:700;
-    border-radius:14px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);touch-action:none;user-select:none;-webkit-user-select:none}
+  .tk{position:absolute;pointer-events:auto;border:1px solid var(--edge);background:rgba(12,16,14,.38);color:var(--ink);font-size:17px;font-weight:700;
+    border-radius:16px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);touch-action:none;user-select:none;-webkit-user-select:none}
   .tk.on{background:rgba(242,194,48,.55);color:#1b1505}
-  .tl2{left:calc(var(--sl) + 14px);bottom:calc(var(--sb) + 90px);width:86px;height:86px}
-  .tr2{left:calc(var(--sl) + 112px);bottom:calc(var(--sb) + 90px);width:86px;height:86px}
-  .thr{right:calc(var(--sr) + 14px);bottom:calc(var(--sb) + 200px);width:96px;height:120px}
-  .brk{right:calc(var(--sr) + 122px);bottom:calc(var(--sb) + 200px);width:96px;height:90px}
-  .up{right:calc(var(--sr) + 14px);bottom:calc(var(--sb) + 330px);width:56px;height:46px}
-  .dn{right:calc(var(--sr) + 78px);bottom:calc(var(--sb) + 330px);width:56px;height:46px}
-  .bl .cams{display:none}
+  .tl2{left:calc(var(--sl) + 12px);bottom:calc(var(--sb) + 12px);width:min(17vw,96px);height:min(17vw,96px)}
+  .tr2{left:calc(var(--sl) + 24px + min(17vw,96px));bottom:calc(var(--sb) + 12px);width:min(17vw,96px);height:min(17vw,96px)}
+  .thr{right:calc(var(--sr) + 12px);bottom:calc(var(--sb) + 12px);width:min(16vw,92px);height:min(30vh,130px)}
+  .brk{right:calc(var(--sr) + 24px + min(16vw,92px));bottom:calc(var(--sb) + 12px);width:min(16vw,92px);height:min(22vh,96px)}
+  .up{right:calc(var(--sr) + 12px);bottom:calc(var(--sb) + 22px + min(30vh,130px));width:min(16vw,92px);height:44px}
+  .dn{right:calc(var(--sr) + 24px + min(16vw,92px));bottom:calc(var(--sb) + 22px + min(22vh,96px));width:min(16vw,92px);height:44px}
+  /* HUD rearranged around the thumbs */
+  .board,.hint,.tyres,#gball,.pedals,.cams{display:none}
+  .tl{min-width:0;padding:6px 10px}.place b{font-size:30px}.rows{font-size:12px;margin-top:4px}
+  #map{width:120px;height:100px}
+  .dash{left:50%;right:auto;transform:translateX(-50%);bottom:calc(var(--sb) + 8px);width:200px;padding:6px 10px 6px 12px}
+  .kmh b{font-size:40px}.gear{width:42px;height:48px}.gear b{font-size:26px}
+  .bl{left:50%;transform:translateX(-50%);top:calc(var(--st) + 10px);bottom:auto;max-width:none;align-items:center}
+  .opts .btn{font-size:11px;padding:5px 8px}
+  .sector{top:calc(var(--st) + 52px)}.sector b{font-size:18px}
+  .start{top:30%}.start .msg{font-size:14px}
 }

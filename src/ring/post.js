@@ -3,19 +3,21 @@ import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer.j
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass.js';
 import {UnrealBloomPass} from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import {ShaderPass} from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import {renderer,scene,camera,sun,sunDir,tex,rnd,clamp} from './core.js';
+import {renderer,scene,camera,sun,sunDir,tex,rnd,clamp,QUALITY} from './core.js';
+import {FXAAShader} from 'three/examples/jsm/shaders/FXAAShader.js';
 import {setTreeQuality} from './scenery.js';
 
 /* Linear HDR scene -> bloom -> one final pass that adds the sun's glare (halo, starburst, lens
    ghosts, veiling glare, lit-up windscreen dirt in the cockpit), then exposure, ACES and sRGB. */
 const W=()=>window.innerWidth,H=()=>window.innerHeight;
 const gl2=renderer.capabilities.isWebGL2;
-let high=true;
-try{high=localStorage.getItem('ring-quality')!=='low';}catch(e){}
+/* 2 high (MSAA, bloom, big shadows), 1 medium, 0 low (phones: FXAA, no bloom, small shadows) */
+let q=QUALITY;
+const NAMES=['Low','Medium','High'];
 
 const rtOpts={type:THREE.HalfFloatType,format:THREE.RGBAFormat};
-function makeRT(){return gl2&&high?new THREE.WebGLMultisampleRenderTarget(W(),H(),rtOpts):new THREE.WebGLRenderTarget(W(),H(),rtOpts);}
-let composer,bloom,final;
+function makeRT(){return gl2&&q===2?new THREE.WebGLMultisampleRenderTarget(W(),H(),rtOpts):new THREE.WebGLRenderTarget(W(),H(),rtOpts);}
+let composer,bloom,final,fxaa;
 
 /* windscreen grime: wiper arcs, smudges, bug splats, fine scratches */
 const dirtTex=tex(1024,512,(g,w,h)=>{
@@ -95,23 +97,27 @@ function build(){
   composer=new EffectComposer(renderer,makeRT());
   composer.addPass(new RenderPass(scene,camera));
   bloom=new UnrealBloomPass(new THREE.Vector2(W(),H()),0.55,0.6,1.2);
-  bloom.enabled=high;
+  bloom.enabled=q>=1;
   composer.addPass(bloom);
   final=final||new ShaderPass(FinalShader);
   composer.addPass(final);
+  fxaa=fxaa||new ShaderPass(FXAAShader);
+  if(q<2)composer.addPass(fxaa);
   resize();
 }
-function resize(){composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(W(),H());bloom.resolution.set(W(),H());final.uniforms.aspect.value=W()/H();}
+function resize(){const pr=renderer.getPixelRatio();composer.setPixelRatio(pr);composer.setSize(W(),H());bloom.resolution.set(W(),H());final.uniforms.aspect.value=W()/H();
+  if(fxaa)fxaa.uniforms.resolution.value.set(1/(W()*pr),1/(H()*pr));}
 window.addEventListener('resize',resize);
 function applyQuality(){
-  renderer.setPixelRatio(high?Math.min(window.devicePixelRatio||1,1.75):Math.min(window.devicePixelRatio||1,1)*0.85);
-  const size=high?4096:1536;
+  const dpr=window.devicePixelRatio||1;
+  renderer.setPixelRatio([Math.min(dpr,1.25)*0.85,Math.min(dpr,1.25),Math.min(dpr,1.75)][q]);
+  const size=[1024,2048,4096][q];
   if(sun.shadow.mapSize.x!==size){sun.shadow.mapSize.set(size,size);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}
-  setTreeQuality(high);
+  setTreeQuality(q);
   build();
-  const b=document.getElementById('quality');if(b)b.textContent='Quality: '+(high?'High':'Low');
+  const b=document.getElementById('quality');if(b)b.textContent='Quality: '+NAMES[q];
 }
-export function toggleQuality(){high=!high;try{localStorage.setItem('ring-quality',high?'high':'low');}catch(e){}applyQuality();}
+export function toggleQuality(){q=(q+2)%3;try{localStorage.setItem('ring-quality',NAMES[q].toLowerCase());}catch(e){}applyQuality();}
 applyQuality();
 document.getElementById('quality')?.addEventListener('click',toggleQuality);
 
@@ -140,6 +146,6 @@ export function render(dt,o){
   U.exposure.value=expo;
   U.cockpit.value=o.cockpit?1:0;
   U.time.value+=dt;
-  U.blur.value=high&&o.blur?o.blur:0;
+  U.blur.value=q===2&&o.blur?o.blur:0;
   composer.render(dt);
 }
